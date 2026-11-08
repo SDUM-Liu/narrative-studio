@@ -1,0 +1,11 @@
+{
+  "镜号": "shot_id",
+  "集数": "episode_id",
+  "场景": "scene",
+  "人物": "characters",
+  "台词": "dialogue",
+  "说话人": "speaker",
+  "画面提示": "prompt",
+  "动作提示": "action_prompt",
+  "时长": "target_duration"
+}

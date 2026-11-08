@@ -1,0 +1,11 @@
+fastapi==0.121.0
+uvicorn==0.38.0
+httpx==0.28.1
+websocket-client==1.9.0
+PyYAML==6.0.3
+pydantic==2.13.4
+Pillow==12.2.0
+imageio-ffmpeg==0.6.0
+av==16.0.1
+requests==2.34.2
+pytest==8.4.2

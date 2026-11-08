@@ -1,0 +1,317 @@
+[
+  {
+    "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+    "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+    "file": "split_files/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+    "size": 20430679144,
+    "sha256": "5dc80554d5d83390046a2f4a94ece06afb7700bf7b0aaf8bde9769793875876b",
+    "path": "models/diffusion_models/qwen_image_2512_fp8_e4m3fn.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+    "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+    "file": "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    "size": 9384670680,
+    "sha256": "cb5636d852a0ea6a9075ab1bef496c0db7aef13c02350571e388aea959c5c0b4",
+    "path": "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Qwen-Image_ComfyUI",
+    "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+    "file": "split_files/vae/qwen_image_vae.safetensors",
+    "size": 253806246,
+    "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+    "path": "models/vae/qwen_image_vae.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Qwen-Image-Edit_ComfyUI",
+    "revision": "f68ace85e60b4a02a323e394253731947657b7d2",
+    "file": "split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+    "size": 20533762817,
+    "sha256": "c9fdc158e46d3b61ef75f21ae866ca2fe808bf4a53643120d1c1e87c19280a4e",
+    "path": "models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "README.md",
+    "size": 3263,
+    "sha256": null,
+    "path": "models/tts/README.md",
+    "group": "tts",
+    "blob_id": "ed613da23a5e133a506b13b79055854938b9e67c"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "config.json",
+    "size": 4908,
+    "sha256": null,
+    "path": "models/tts/config.json",
+    "group": "tts",
+    "blob_id": "5e8d5fc100536984e3a89bd87ef08e59e322b29b"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "generation_config.json",
+    "size": 245,
+    "sha256": null,
+    "path": "models/tts/generation_config.json",
+    "group": "tts",
+    "blob_id": "1872b16d4535564abf2db5d6debe6cddd82b7f2e"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "merges.txt",
+    "size": 1671839,
+    "sha256": null,
+    "path": "models/tts/merges.txt",
+    "group": "tts",
+    "blob_id": "20024bfe7c83998e9aeaf98a0cd6a2ce6306c2f0"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "model.safetensors",
+    "size": 1811626576,
+    "sha256": "bc3c7e785eb961179c25450d1acff03f839e0002f2f3a5aeb67b5735c0fa2adb",
+    "path": "models/tts/model.safetensors",
+    "group": "tts"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "preprocessor_config.json",
+    "size": 127,
+    "sha256": null,
+    "path": "models/tts/preprocessor_config.json",
+    "group": "tts",
+    "blob_id": "0525dd953bb9241912f7147666f0d535165d5d4f"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "speech_tokenizer/config.json",
+    "size": 2336,
+    "sha256": null,
+    "path": "models/tts/speech_tokenizer/config.json",
+    "group": "tts",
+    "blob_id": "06cc8dc4c5ec8a1929086b71b98c313020d9268b"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "speech_tokenizer/configuration.json",
+    "size": 76,
+    "sha256": null,
+    "path": "models/tts/speech_tokenizer/configuration.json",
+    "group": "tts",
+    "blob_id": "ab58e2eaf53cd14a1a2a7527d9261ceea93a24cd"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "speech_tokenizer/model.safetensors",
+    "size": 682293092,
+    "sha256": "836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258",
+    "path": "models/tts/speech_tokenizer/model.safetensors",
+    "group": "tts"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "speech_tokenizer/preprocessor_config.json",
+    "size": 234,
+    "sha256": null,
+    "path": "models/tts/speech_tokenizer/preprocessor_config.json",
+    "group": "tts",
+    "blob_id": "ba40914f4f49ab98a8ca545d4892ef7291a39592"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "tokenizer_config.json",
+    "size": 7344,
+    "sha256": null,
+    "path": "models/tts/tokenizer_config.json",
+    "group": "tts",
+    "blob_id": "6ff9fd60cc623bb54bbd603cbd418c97a11528d7"
+  },
+  {
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5",
+    "file": "vocab.json",
+    "size": 2776833,
+    "sha256": null,
+    "path": "models/tts/vocab.json",
+    "group": "tts",
+    "blob_id": "4783fe10ac3adce15ac8f358ef5462739852c569"
+  },
+  {
+    "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "file": "split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+    "size": 14294742832,
+    "sha256": "6122e79d55e0f235698d11d657f3b196c5273c830da00b2b013c5a048d5e6a42",
+    "path": "models/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "file": "split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+    "size": 14294742832,
+    "sha256": "5471a457b6ac404202a5fbe6c11595a3d5641fc766b00f38763f72303fffc21e",
+    "path": "models/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "file": "split_files/vae/wan_2.1_vae.safetensors",
+    "size": 253815318,
+    "sha256": "2fc39d31359a4b0a64f55876d8ff7fa8d780956ae2cb13463b0223e15148976b",
+    "path": "models/vae/wan_2.1_vae.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "file": "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+    "size": 6735906897,
+    "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68",
+    "path": "models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "file": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+    "size": 1226977424,
+    "sha256": "d176c808d6fc461999b68e321efcb7501b20b8c3797523ed0df14f7d1deff11e",
+    "path": "models/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+    "revision": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+    "file": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+    "size": 1226977424,
+    "sha256": "024f21de095bc8fad9809ded3e9e49a2e170dcf27075da8145ba7d60d8aab7f9",
+    "path": "models/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "lightx2v/Qwen-Image-2512-Lightning",
+    "revision": "4609161e308ce82018a42c2a0c9b107e865bb751",
+    "file": "Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors",
+    "size": 849608296,
+    "sha256": "de0d236e54ecf2c43b32447d13478c6eae0d361b1fed48c69675b084fa240d87",
+    "path": "models/loras/Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+    "revision": "107d238d68b8387e32843d0b4a2e24ceb0d3ad86",
+    "file": "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+    "size": 849608296,
+    "sha256": "22226e8d05d354bb356627d428809f5afd7819399b077238a2b70a82883a904f",
+    "path": "models/loras/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors",
+    "group": "production"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "README.md",
+    "path": "models/asr/README.md",
+    "size": 57456,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "3a67d43f21febda213ff36efdb60ef10019af7f3"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "chat_template.json",
+    "path": "models/asr/chat_template.json",
+    "size": 1161,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "c44736493efd71ec96218cc626904698cdb13235"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "config.json",
+    "path": "models/asr/config.json",
+    "size": 6193,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "8113d596dec2d1a2ef4552edfe005ee84d16d9ec"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "generation_config.json",
+    "path": "models/asr/generation_config.json",
+    "size": 142,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "7382a4d347c0a865b76bb1b8277f66a5ac312854"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "merges.txt",
+    "path": "models/asr/merges.txt",
+    "size": 1671853,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "model.safetensors",
+    "path": "models/asr/model.safetensors",
+    "size": 1876091704,
+    "sha256": "79d6cbd4c98c7bbffe9db2edac07f56cd6637d0d5944b27f6c2b8353840323ea",
+    "group": "asr"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "preprocessor_config.json",
+    "path": "models/asr/preprocessor_config.json",
+    "size": 330,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "8f7f07346466d5d494ec0d4969d1c3d0190eed72"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "tokenizer_config.json",
+    "path": "models/asr/tokenizer_config.json",
+    "size": 12487,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "b93109843922a40c6654c5449d3bf95372267c66"
+  },
+  {
+    "repo": "Qwen/Qwen3-ASR-0.6B",
+    "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+    "file": "vocab.json",
+    "path": "models/asr/vocab.json",
+    "size": 2776833,
+    "sha256": null,
+    "group": "asr",
+    "blob_id": "4783fe10ac3adce15ac8f358ef5462739852c569"
+  }
+]

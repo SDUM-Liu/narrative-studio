@@ -1,0 +1,16 @@
+Narrative Studio / 叙映工坊
+Copyright (C) 2026 SDUM-Liu and contributors
+
+Original application code and example scripts are licensed under
+GPL-3.0-or-later. See LICENSE. The ComfyUI metrics extension carries the
+same SPDX license identifier in its source file.
+
+NotoSansCJKsc-Regular.otf is a separate, unmodified third-party font:
+Copyright 2014-2021 Adobe (http://www.adobe.com/).
+Noto is a trademark of Google Inc. The font remains under SIL Open Font
+License 1.1, reproduced in
+shared-assets/fonts/LICENSE. Source: https://github.com/notofonts/noto-cjk
+
+ComfyUI, model weights, runtime packages and FFmpeg binaries are not
+included in this repository. Installation downloads them separately.
+Their licenses remain independent; see docs/THIRD_PARTY.md.

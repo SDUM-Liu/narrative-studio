@@ -1,0 +1,76 @@
+id: template
+name: 新作品
+genre: 待配置
+language: Chinese
+format:
+  aspect_ratio: '16:9'
+  width: 768
+  height: 432
+  fps: 16
+episodes: 1
+target_duration: 60
+style:
+  description: 由作品决定
+  positive_prefix: ''
+  negative: 模糊，低画质，肢体变形
+defaults:
+  duration: 6
+  seed: 20261108
+characters: {}
+voices: {}
+scenes: {}
+continuity: []
+models:
+  image:
+    provider: comfy
+    model: qwen_image_2512_fp8_e4m3fn.safetensors
+    lora: Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors
+    text_encoder: qwen_2.5_vl_7b_fp8_scaled.safetensors
+    vae: qwen_image_vae.safetensors
+    steps: 4
+    cfg: 1.0
+    shift: 3.1
+    min_free_mib: 12000
+  edit:
+    provider: comfy
+    model: qwen_image_edit_2511_fp8mixed-dequant-bf16.safetensors
+    lora: Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
+    text_encoder: qwen_2.5_vl_7b_fp8_scaled.safetensors
+    vae: qwen_image_vae.safetensors
+    steps: 4
+    cfg: 1.0
+    shift: 3.1
+    min_free_mib: 12000
+  video:
+    provider: comfy
+    family: wan22-a14b
+    high_model: wan2.2_i2v_high_noise_14B_fp8_scaled-dequant-bf16-clean.safetensors
+    low_model: wan2.2_i2v_low_noise_14B_fp8_scaled-dequant-bf16-clean.safetensors
+    high_lora: wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors
+    low_lora: wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors
+    text_encoder: umt5_xxl_fp8_e4m3fn_scaled.safetensors
+    vae: wan_2.1_vae.safetensors
+    steps: 4
+    split_step: 2
+    cfg: 1.0
+    shift: 5.0
+    min_free_mib: 16500
+  tts:
+    provider: qwen3-tts
+    model_path: models/tts
+    min_free_mib: 6500
+review:
+  require_first_frame: true
+  human_takeover: true
+  max_retries: 2
+budget:
+  max_shot_duration: 15
+  max_candidates_per_shot: 12
+  max_jobs: 200
+  reserve_free_mib: 4096
+routing:
+  creative: Codex通过文件和CLI参与创意、剧本、提示词和重点审核
+  production: local
+  paid_api_enabled: false
+  gpu_mode: independent
+  distributed: false

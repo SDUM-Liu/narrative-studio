@@ -1,0 +1,13 @@
+[
+  {
+    "episode_id": "01",
+    "shot_id": "001",
+    "scene": "harbor",
+    "characters": [],
+    "prompt": "A white ceramic teacup on a wooden cafe table overlooking a quiet harbor at sunrise, warm cinematic light, no people, no text",
+    "action_prompt": "Soft steam curls upward from the teacup while boats gently sway in the harbor. Slow camera push in. One continuous shot.",
+    "negative_prompt": "text, watermark, blurry, distorted objects",
+    "target_duration": 6,
+    "seed": 12345
+  }
+]
