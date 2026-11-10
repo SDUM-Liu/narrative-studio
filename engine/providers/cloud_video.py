@@ -16,10 +16,29 @@ ENDPOINTS = {
 }
 
 
+def local_api_settings():
+    from engine.core import ROOT
+    path=ROOT/'runtime/api-credentials.json'
+    return json.loads(path.read_text()) if path.is_file() else {}
+
+
+def endpoint(provider):
+    base,create,query,key=ENDPOINTS[provider]
+    if provider=='minimax-h3-api':
+        region=os.environ.get('MINIMAX_API_REGION') or local_api_settings().get('MINIMAX_API_REGION','global')
+        if region not in {'global','cn'}:raise ValueError('MINIMAX_API_REGION must be global or cn')
+        if region=='cn':base='https://api.minimax.cn'
+    return base,create,query,key
+
+
 def credential(name):
     value=os.environ.get(name)
     if value:return value.strip()
     filename=os.environ.get(name+'_FILE')
+    if not filename:
+        from engine.core import ROOT
+        location=local_api_settings().get(name+'_FILE')
+        if location:filename=str((ROOT/Path(location).expanduser()).resolve())
     if filename:
         path=Path(filename).expanduser()
         if path.stat().st_mode & 0o077:raise ValueError(name+'_FILE must have permissions 600 or stricter')
@@ -101,7 +120,7 @@ def run(task, gpu, out):
     approval=p.get('input_review',{})
     signature=video.fingerprint(p,pid)
     if not approval.get('approved') or approval.get('fingerprint')!=signature:raise ValueError('API task inputs/configuration require review')
-    base,create_path,query_path,key_env=ENDPOINTS[p['provider']]
+    base,create_path,query_path,key_env=endpoint(p['provider'])
     key=credential(key_env)
     if not key:raise ValueError('Set '+key_env+' in the API worker environment; never store credentials in project YAML')
     headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'}
@@ -111,11 +130,12 @@ def run(task, gpu, out):
         if state_file.exists():
             state=json.loads(state_file.read_text())
             if state['fingerprint']!=signature or state['provider']!=p['provider']:raise ValueError('Remote request fingerprint/provider mismatch')
+            if state.get('api_origin',base)!=base:raise ValueError('Saved task belongs to a different API region; restore its original region before resuming')
             if not state.get('request_id'):raise RuntimeError('Previous API submission has an unknown outcome; check provider console before retrying. Automatic duplicate billing prevented.')
         else:
             payload=request(p,pid)
             save(out/'api-request-preview.json',preview(p,pid))
-            state={'provider':p['provider'],'model':p['model'],'fingerprint':signature,
+            state={'provider':p['provider'],'model':p['model'],'fingerprint':signature,'api_origin':base,
                    'submitted_at':time.time(),'status':'submitting','request_id':None}
             # Persist intent before sending: an interrupted POST is never retried implicitly.
             save(state_file,state)
@@ -156,7 +176,7 @@ def run(task, gpu, out):
     if bool(info.get('audio'))!=p.get('generate_audio',True):raise RuntimeError('API output audio state differs from reviewed request')
     validate_canvas(p,info,reported)
     save(out/'media-validation.json',info)
-    metrics=dict(provider=p['provider'],backend_type='official-api',model=p['model'],
+    metrics=dict(provider=p['provider'],backend_type='official-api',model=p['model'],api_origin=base,
                  generation_mode='first-last-frame' if p.get('image_mode')=='first_last' else 'reference-to-video' if any(video.references(p).values()) else 'text-to-video',
                  resolution=p['resolution'],fps=info['fps'],width=info['width'],height=info['height'],duration=info['duration'],
                  whether_native_audio=bool(info['audio']),audio_source='native' if info['audio'] else 'none',

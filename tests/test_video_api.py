@@ -238,6 +238,7 @@ def test_control_api_catalog_and_model_configuration(project):
 
 
 def test_explicit_secret_file_is_private_and_never_auto_discovered(tmp_path,monkeypatch):
+    monkeypatch.setattr(core,'ROOT',tmp_path)
     monkeypatch.delenv('MINIMAX_API_KEY',raising=False);monkeypatch.delenv('MINIMAX_API_KEY_FILE',raising=False)
     path=tmp_path/'.minimaxH3apikey';path.write_text('fixture-private-key\n');path.chmod(0o600)
     assert provider.credential('MINIMAX_API_KEY') is None
@@ -281,3 +282,50 @@ def test_services_api_mode_never_discovers_gpus(project,monkeypatch):
     monkeypatch.setattr(sys,'argv',['services','start','--only','api','review'])
     services.main()
     assert {args[0] for args in calls}=={'api','review'}
+
+
+
+def test_registered_secret_files_persist_without_shell_exports(project,monkeypatch):
+    for name in ['MINIMAX_API_KEY','ARK_API_KEY']:
+        monkeypatch.delenv(name,raising=False);monkeypatch.delenv(name+'_FILE',raising=False)
+    first=project/'.minimaxH3apikey';first.write_text('fixture-minimax');first.chmod(0o600)
+    second=project/'.seedance2apikey';second.write_text('fixture-ark');second.chmod(0o600)
+    (project/'runtime/api-credentials.json').write_text(json.dumps({
+        'MINIMAX_API_KEY_FILE':'.minimaxH3apikey','ARK_API_KEY_FILE':'.seedance2apikey'}))
+    assert provider.credential('MINIMAX_API_KEY')=='fixture-minimax'
+    assert provider.credential('ARK_API_KEY')=='fixture-ark'
+    monkeypatch.setenv('MINIMAX_API_KEY','explicit-env-key')
+    assert provider.credential('MINIMAX_API_KEY')=='explicit-env-key'
+    monkeypatch.delenv('MINIMAX_API_KEY')
+    monkeypatch.setenv('MINIMAX_API_KEY_FILE',str(second))
+    assert provider.credential('MINIMAX_API_KEY')=='fixture-ark'
+    assert first.read_text()=='fixture-minimax'
+
+
+def test_minimax_registered_region_and_read_only_credential_check(project,monkeypatch):
+    from scripts.check_api_credentials import check
+    from urllib.parse import urlsplit
+    (project/'runtime/api-credentials.json').write_text(json.dumps({'MINIMAX_API_REGION':'cn'}))
+    monkeypatch.delenv('MINIMAX_API_REGION',raising=False)
+    assert provider.endpoint('minimax-h3-api')[0]=='https://api.minimax.cn'
+    calls=[]
+    def handler(req):
+        calls.append(req)
+        assert req.method=='GET' and req.url.params['page_size']=='1'
+        return httpx.Response(200,json={'base_resp':{'status_code':0},'items':[]})
+    install_mock(monkeypatch,handler)
+    result=check(remote=True)
+    assert all(s['authenticated'] for s in result.values())
+    assert [req.url.host for req in calls]==['api.minimax.cn','ark.cn-beijing.volces.com']
+    assert 'fixture-api-key' not in json.dumps(result)
+    monkeypatch.setenv('MINIMAX_API_REGION','global')
+    assert provider.endpoint('minimax-h3-api')[0]=='https://api.minimax.io'
+
+
+def test_saved_api_task_cannot_resume_in_a_different_region(project,monkeypatch):
+    task=submit();out=output_dir(task)
+    provider.save(out/'remote-task.json',{'provider':task['params']['provider'],'fingerprint':video.fingerprint(task['params'],'api-film'),
+                                        'request_id':'remote-001','api_origin':'https://api.minimax.cn'})
+    install_mock(monkeypatch,lambda req: (_ for _ in ()).throw(AssertionError('Must reject region change before HTTP')))
+    monkeypatch.setenv('MINIMAX_API_REGION','global')
+    with pytest.raises(ValueError,match='region'):provider.run(task,-2,out)

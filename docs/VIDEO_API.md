@@ -30,9 +30,9 @@ export ARK_API_KEY='你的火山方舟 API 密钥'
 bash scripts/start.sh --only api review
 ```
 
-也可用 `services.py run --only api review` 在进程管理器里前台监督。`api` worker 使用 SQLite lane `-2`，只处理 API 视频；本地 H3 仍为 `-1`。它不访问 `nvidia-smi` / CUDA，不等待 Slurm。单 worker 串行执行，遵循模型并发额度，适合高分辨率限流场景。环境变量由启动进程继承，不会自动读取 `.env`。也支持 `MINIMAX_API_KEY_FILE` / `ARK_API_KEY_FILE` 指定权限 600 的纯文本密钥文件；不会自动扫描工作目录中的密钥。
+也可用 `services.py run --only api review` 在进程管理器里前台监督。`api` worker 使用 SQLite lane `-2`，只处理 API 视频；本地 H3 仍为 `-1`。它不访问 `nvidia-smi` / CUDA，不等待 Slurm。单 worker 串行执行，遵循模型并发额度，适合高分辨率限流场景。环境变量由启动进程继承，不会自动读取 `.env`。也支持 `MINIMAX_API_KEY_FILE` / `ARK_API_KEY_FILE` 指定权限 600 的纯文本密钥文件；也可在被 Git 忽略的 `runtime/api-credentials.json` 登记文件路径；服务重启后仍生效，不会自动扫描目录或复制密钥内容。读取优先级为密钥环境变量、显式 *_FILE 环境变量、本地登记文件。
 
-MiniMax 直连 `https://api.minimax.io/v2/video_generation`，按 task_id 查询 `/v2/query/video_generation/{task_id}`；Seedance 直连 `https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks`。不使用第三方转售网关。账号需自行开通相应模型并有可用额度。
+MiniMax 国际站直连 `https://api.minimax.io/v2/video_generation`；国内站设置 `MINIMAX_API_REGION=cn` 后直连 `https://api.minimax.cn/v2/video_generation`，按 task_id 查询 `/v2/query/video_generation/{task_id}`；Seedance 直连 `https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks`。不使用第三方转售网关。账号需自行开通相应模型并有可用额度。
 
 ## 最小运行示例
 
@@ -93,3 +93,18 @@ API 输出原容器直接保存为 video.mp4 / video.mov，并记录真实尺寸
 API profile 默认 `export.preserve_source_format: true`，按实际素材尺寸导出；保持 HEVC/10bit 和原生 AAC，MOV 的 PCM 音轨也保持。字幕版需要视频编码时保持原像素格式。不同尺寸/编码/音频规格的候选混合导出会报错，避免拼接损坏或隐式降质；需先统一源规格，或显式关闭此选项并设置统一导出画布。口型始终等待人工验收。
 
 费用取决于官方当前计费、参考素材、分辨率与实际生成时长；失败/超时不等于服务商一定不计费。高质量默认配置会增加费用，无自动低价重试或跨供应商 fallback。当前回归测试使用 HTTP 替身与真实本地媒体，不等同于已经用你的账号完成付费实测。
+
+
+本机文件连接示例（只存路径，不存密钥内容）：
+
+```json
+{
+  "MINIMAX_API_KEY_FILE": ".minimaxH3apikey",
+  "ARK_API_KEY_FILE": ".seedance2apikey",
+  "MINIMAX_API_REGION": "cn"
+}
+```
+
+将此 JSON 保存为 `runtime/api-credentials.json`；路径相对项目仓库根目录解析。设置两个密钥文件权限为 600 后，直接 `bash scripts/start.sh --only api review` 即可，无需再次 export。`python -m scripts.check_api_credentials` 只检查安全读取；加 `--remote` 通过官方任务列表 GET 接口验证鉴权，不创建视频任务。鉴权通过不等于所有型号都已开通或额度充足。
+
+MiniMax 地域与密钥所属站点须一致（`cn` 国内站 / `global` 国际站）；本机已核验的国内站 OpenAPI 为 [国内官方接口定义](https://platform.minimax.cn/docs/api-reference/video/generation/api/v2-video-generation.json)。地域固定配置，不会在生成失败后跨地域重提；保存的远端任务记录 api_origin，禁止切到其他地域恢复原任务。
