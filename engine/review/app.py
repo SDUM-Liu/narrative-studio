@@ -24,12 +24,12 @@ def chinese_font():return FileResponse(c.ROOT/'shared-assets/fonts/NotoSansCJKsc
 @app.get('/api/health')
 def health():
     states={}
-    for name in ['bootstrap','models','primary','tts']:
+    for name in ['h3-runtime','h3-models','bootstrap','models','tts']:
         p=c.ROOT/'runtime'/f'{name}.status';states[name]=p.read_text().strip() if p.exists() else '尚未完成'
     caps=c.ROOT/'docs/capabilities.json'
     from scripts.services import load,alive
-    services={name:{'alive':alive(item),'pid':item['pid']} for name,item in load().items()}
-    paused={str(gpu):json.loads(p.read_text()) for gpu in [0,1] if (p:=c.ROOT/'runtime'/f'gpu-{gpu}.paused.json').exists()}
+    services={name:{'alive':alive(item),'pid':item['pid'],'host':item.get('host'),'job_id':item.get('job_id'),'gpu_device':item.get('gpu_device')} for name,item in load().items()}
+    paused={p.name.split('-')[1].split('.')[0]:json.loads(p.read_text()) for p in (c.ROOT/'runtime').glob('gpu-*.paused.json')}
     return {'ok':True,'name':'叙映工坊','time':time.time(),'deployment':states,'services':services,'paused_gpus':paused,'capabilities':json.loads(caps.read_text()) if caps.exists() else {},'paid_api_enabled':False}
 @app.get('/api/projects')
 def projects():
@@ -67,6 +67,8 @@ class Review(BaseModel):
     reason:str=''
 @app.post('/api/tasks/{tid}/review')
 def review(tid:str,body:Review):return c.review(tid,body.decision,body.reason)
+@app.post('/api/tasks/{tid}/review-inputs')
+def review_inputs(tid:str,body:Review):return c.review_inputs(tid,body.decision,body.reason)
 class Submit(BaseModel):
     episode:str
     shot:str

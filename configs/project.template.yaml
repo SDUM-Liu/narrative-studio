@@ -1,12 +1,13 @@
+# Final quality: official local H3 Base, native BF16/FP32, 50 steps, exact attention.
 id: template
 name: 新作品
 genre: 待配置
 language: Chinese
 format:
   aspect_ratio: '16:9'
-  width: 768
-  height: 432
-  fps: 16
+  width: 1344
+  height: 768
+  fps: 24
 episodes: 1
 target_duration: 60
 style:
@@ -14,7 +15,7 @@ style:
   positive_prefix: ''
   negative: 模糊，低画质，肢体变形
 defaults:
-  duration: 6
+  duration: 15
   seed: 20261108
 characters: {}
 voices: {}
@@ -23,46 +24,51 @@ continuity: []
 models:
   image:
     provider: comfy
-    model: qwen_image_2512_fp8_e4m3fn.safetensors
-    lora: Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors
-    text_encoder: qwen_2.5_vl_7b_fp8_scaled.safetensors
+    model: qwen_image_2512_bf16.safetensors
+    text_encoder: qwen_2.5_vl_7b.safetensors
     vae: qwen_image_vae.safetensors
-    steps: 4
-    cfg: 1.0
+    steps: 50
+    cfg: 4.0
     shift: 3.1
-    min_free_mib: 12000
+    min_free_mib: 60000
   edit:
     provider: comfy
-    model: qwen_image_edit_2511_fp8mixed-dequant-bf16.safetensors
-    lora: Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors
-    text_encoder: qwen_2.5_vl_7b_fp8_scaled.safetensors
+    model: qwen_image_edit_2511_bf16.safetensors
+    text_encoder: qwen_2.5_vl_7b.safetensors
     vae: qwen_image_vae.safetensors
-    steps: 4
-    cfg: 1.0
+    steps: 50
+    cfg: 4.0
     shift: 3.1
-    min_free_mib: 12000
+    min_free_mib: 60000
   video:
-    provider: comfy
-    family: wan22-a14b
-    high_model: wan2.2_i2v_high_noise_14B_fp8_scaled-dequant-bf16-clean.safetensors
-    low_model: wan2.2_i2v_low_noise_14B_fp8_scaled-dequant-bf16-clean.safetensors
-    high_lora: wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors
-    low_lora: wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors
-    text_encoder: umt5_xxl_fp8_e4m3fn_scaled.safetensors
-    vae: wan_2.1_vae.safetensors
-    steps: 4
-    split_step: 2
-    cfg: 1.0
-    shift: 5.0
-    min_free_mib: 16500
+    provider: minimax-h3
+    model: MiniMax-H3
+    inference_mode: local
+    quality: exact
+    resolution: 768P
+    native_audio: true
+    audio_mode: native
+    audio_sample_rate: 32000
+    max_reference_images: 9
+    max_reference_videos: 3
+    max_reference_audio: 3
+    timeout: 86400
+    model_path: models/minimax-h3
+    steps: 50
+    flow_shift: 12.0
+    audio_flow_shift: 3.0
+    num_gpus: 2
+    tp_size: 2
+    ulysses_degree: 1
+    min_free_mib: 70000
   tts:
     provider: qwen3-tts
     model_path: models/tts
     min_free_mib: 6500
 review:
-  require_first_frame: true
   human_takeover: true
   max_retries: 2
+  require_input_review: true
 budget:
   max_shot_duration: 15
   max_candidates_per_shot: 12
@@ -72,5 +78,11 @@ routing:
   creative: Codex通过文件和CLI参与创意、剧本、提示词和重点审核
   production: local
   paid_api_enabled: false
-  gpu_mode: independent
-  distributed: false
+  gpu_mode: tensor-parallel
+  distributed: true
+export:
+  audio_policy: native
+  allow_silent: false
+  video_crf: 16
+  video_preset: slow
+  audio_bitrate: 320k

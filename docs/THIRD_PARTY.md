@@ -1,20 +1,20 @@
-# 第三方组件与模型来源
+# 上游组件、能力与许可
 
-仓库分发原创控制代码、示例和 Noto 字体。ComfyUI、模型和运行包由安装脚本单独取得。精确模型版本、路径及摘要见 `model-manifests/models.json`；有 LFS 摘要的文件校验 SHA256，普通 Git 文件校验 Git blob SHA1。
+代码 GPL-3.0-or-later 不替代模型/服务/素材许可。核查日期：2026-11-10。
 
-| 组件 | 官方来源 | 上游许可 / 说明 |
+| 组件 | 来源与用途 | 许可 / 边界 |
 |---|---|---|
-| ComfyUI | [Comfy-Org/ComfyUI](https://github.com/Comfy-Org/ComfyUI) | GPL-3.0；固定提交保留上游 LICENSE |
-| 文生图 | [Qwen-Image-2512](https://huggingface.co/Qwen/Qwen-Image-2512)、[Comfy 打包](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI) | Apache-2.0；包含独立的文本编码器与 VAE |
-| 图像编辑 | [Qwen-Image-Edit-2511](https://huggingface.co/Qwen/Qwen-Image-Edit-2511)、[Comfy 打包](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI) | Apache-2.0 |
-| 图像加速 | [Qwen Image Lightning](https://huggingface.co/lightx2v/Qwen-Image-2512-Lightning)、[Edit Lightning](https://huggingface.co/lightx2v/Qwen-Image-Edit-2511-Lightning) | Apache-2.0；LoRA 独立于基础权重 |
-| 视频 | [Wan2.2-I2V-A14B](https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B)、[Comfy 打包](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged) | Apache-2.0；高噪声/低噪声专家分阶段运行 |
-| 视频加速 | [Wan2.2 Distill LoRAs](https://huggingface.co/lightx2v/Wan2.2-Distill-Loras) | Apache-2.0；使用打包仓库中的 high/low 4 步 LoRA |
-| 配音 | [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)、[0.6B CustomVoice 权重](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice) | Apache-2.0 |
-| 语音识别 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR)、[0.6B 权重](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) | Apache-2.0；可选中文初筛 |
-| 字体 | [Noto CJK](https://github.com/notofonts/noto-cjk) | SIL OFL 1.1；仓库内原始字体及 LICENSE 保留 |
-| 视频编码 | [FFmpeg](https://ffmpeg.org/)、[imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg) | Python 包与实际二进制许可分别适用；使用包含 libx264 的构建 |
+| 主视频模型 | [MiniMax H3 官方权重](https://huggingface.co/MiniMaxAI/MiniMax-H3)、[官方代码说明](https://github.com/MiniMax-AI/MiniMax-H3) | MiniMax H3 Community License Agreement；不是 Apache/MIT，商用前阅读权重中的 LICENSE |
+| 本地 H3 推理 | [SGLang H3 原生实现](https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3)、[SGLang](https://github.com/sgl-project/sglang) | Apache-2.0；源码提交固定于 configs/sglang-commit.txt；生成全程本地 |
+| 可选参考资产 | [Qwen-Image 打包](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI)、[Qwen-Image-Edit](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI) | 按上游 Qwen/打包仓库许可；下载原生 BF16，无加速 LoRA |
+| 可选资产运行环境 | [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | GPL-3.0；固定 configs/comfy-commit.txt，仅 image / edit 注册 |
+| 可选独立配音 | [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice) | Apache-2.0；不自动覆盖 H3 原声音 |
+| 可选识别检查 | [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-0.6B) | 遵守对应仓库许可；识别一致不代表声音/表演/口型通过 |
+| 视频处理 | PyAV、imageio-ffmpeg、FFmpeg | 遵守各自许可证及 FFmpeg 实际构建许可（含 x264 的构建通常涉及 GPL） |
+| 字体 | Noto Sans CJK SC | SIL OFL 1.1，见 shared-assets/fonts/LICENSE |
 
-`dequantize_models.py` 仅将选定 FP8 存储与标量缩放转换为普通 BF16 张量。派生权重保留原量化误差，仍遵循原权重许可；`finalize_dequant.py` 调整旧 FP8 控制标记，不改变张量载荷。发布派生权重需另行保留来源与许可，本仓库不分发这些文件。
+完整线上 H3 包含托管 Context-IR、Base 与 H3-Regenerate-2K；后两者中的 2K 模块以及 Context-IR 不属于完整开放的本地系统。本项目仅使用开放 Base 与本地结构化提示组织；不运行收费 API、不需要密钥，不宣称线上线下质量等同。官方亦提供 ComfyUI 模板，但本项目的视频主流程使用 SGLang 的本地 Python 调用而非 Comfy 图。
 
-根目录 GPL-3.0-or-later 许可覆盖原创应用代码和示例。它不改变字体、外部代码、模型权重、声音预设或运行二进制的独立条款，也不对用户上传素材或生成内容授予额外权利。
+原始 H3 checkpoint 的 CFG 蒸馏属于官方 Base 架构。本项目没有引入另外的 Turbo / timestep 蒸馏 LoRA、量化 checkpoint、稀疏近似注意力或跳步缓存。
+
+Wan2.2 和 Lightning 路线已弃用：不注册视频入口，不在默认下载清单或新项目模板出现；旧运行文件可以留作审计，不是 fallback。`model-manifests/models.json` 记录每个下载文件的固定 revision、大小和 SHA256 / Git blob ID，包含 H3 LICENSE；不在仓库再分发权重。

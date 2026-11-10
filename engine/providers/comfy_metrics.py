@@ -39,15 +39,6 @@ def measured_prompt(self,prompt,prompt_id,*args,**kwargs):
 execution.execute=measured_node
 execution.PromptExecutor.execute=measured_prompt
 comfy.model_management.load_models_gpu=measured_load
-class WanConditioningGuard(io.ComfyNode):
-    @classmethod
-    def define_schema(cls):
-        return io.Schema(node_id='NarrativeWanConditioningGuard',display_name='Narrative Wan Text Validation',category='Narrative/Validation',inputs=[io.Conditioning.Input('conditioning'),io.Int.Input('expected_dim',default=4096,min=1,max=16384)],outputs=[io.Conditioning.Output()],is_output_node=True)
-    @classmethod
-    def execute(cls,conditioning,expected_dim):
-        shapes=[list(value[0].shape) for value in conditioning]
-        if not shapes or any(shape[-1]!=expected_dim for shape in shapes):raise ValueError(f'Conditioning dimension mismatch: {shapes}; expected {expected_dim}. Check model-specific text encoder.')
-        return io.NodeOutput(conditioning,ui={'conditioning_shape':shapes})
 class NarrativeExtension(ComfyExtension):
-    async def get_node_list(self):return [WanConditioningGuard]
+    async def get_node_list(self):return []
 async def comfy_entrypoint():return NarrativeExtension()

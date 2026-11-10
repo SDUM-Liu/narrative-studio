@@ -5,7 +5,7 @@ from engine.core import ROOT,create_project,config,import_script,init,project_di
 init()
 if not project_dir('sky-island').exists():
  c=create_project('sky-island','空岛 · 最小闭环验收')
- c.update(genre='方块世界生存短剧',language='Chinese',format={'aspect_ratio':'9:16','width':432,'height':768,'fps':16},episodes=1,target_duration=36)
+ c.update(genre='方块世界生存短剧',language='Chinese',format={'aspect_ratio':'9:16','width':768,'height':1344,'fps':24},episodes=1,target_duration=36)
  c['style']={
  'description':'真人写实人物；方块世界保留几何结构，采用写实材质与电影光照。韩漫审美仅指导造型，最终为真人摄影感。8K为审美描述，非原生推理分辨率。负面马赛克不消除方块结构。',
  'portrait_prompt':'超写实真人质感，韩系精致审美，人像精修级皮肤质感，发丝清晰，电影级柔和打光，边缘轮廓光，画面通透干净，无手绘笔触，无漫画线条，高清8K细节，人物比例正常自然。',
@@ -17,9 +17,7 @@ if not project_dir('sky-island').exists():
  c['voices']={'lu-jingchuan':{'speaker':'Dylan','source':'Qwen3-TTS官方预设声线','language':'Chinese'},'xu-zhixia':{'speaker':'Serena','source':'Qwen3-TTS官方预设声线','language':'Chinese'}}
  c['scenes']={'room':'现代简洁卧室，书桌靠左，窗户在右','island':'悬浮草方块岛、泥土侧壁、橡树，写实草和岩土纹理，远处云海'}
  c['continuity']=['两人现实中原本互不认识','阶段early的服装保持配置一致','方块保留直角几何，不变成圆滑山地','人物面部和肢体必须人工复核；固定种子不能替代参考图编辑']
- c['models']['image']['lora']='Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors'
- c['models']['edit']['lora']='Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors'
- c['models']['image']['min_free_mib']=12000
+ c['models']['image']['min_free_mib']=60000
  (project_dir('sky-island')/'project.yaml').write_text(yaml.safe_dump(c,allow_unicode=True,sort_keys=False))
  man='A photorealistic 22-year-old East Asian man, slim fair face, short neatly styled black hair, navy cropped jacket over ivory T-shirt, black trousers, white sneakers'
  woman='A photorealistic 21-year-old East Asian woman, cool cute oval face, straight shoulder-length black hair, ivory cardigan over light blue T-shirt, dark grey trousers, white sneakers'
@@ -41,9 +39,8 @@ if not project_dir('sky-island').exists():
  (project_dir('sky-island')/'story/NOTE.md').write_text('这些镜头是部署验收草稿，由本次任务新建，不是用户已有导演稿。仅验证能力，不代表完整分集、剧情定稿或商业成片。\n')
 if not project_dir('harbor-tea').exists():
  c=create_project('harbor-tea','港口茶馆 · 横屏广告隔离验证')
- c.update(genre='茶饮产品广告',language='English',format={'aspect_ratio':'16:9','width':768,'height':432,'fps':16},episodes=1,target_duration=6)
+ c.update(genre='茶饮产品广告',language='English',format={'aspect_ratio':'16:9','width':1344,'height':768,'fps':24},episodes=1,target_duration=6)
  c['style']={'description':'水彩纸质感、柔和暖色','positive_prefix':'Watercolor illustration, warm amber tones, textured paper, wide horizontal composition','negative':'photorealistic people, text, watermark'}
- c['models']['image']['lora']='Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors';c['models']['edit']['lora']='Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors'
  (project_dir('harbor-tea')/'project.yaml').write_text(yaml.safe_dump(c,allow_unicode=True,sort_keys=False))
  p=project_dir('harbor-tea')/'story/acceptance-draft.csv'
  p.write_text('episode,shot,duration,scene,positive,motion_prompt,negative\n01,001,6,harbor,"A white ceramic teacup on a wooden cafe table overlooking a quiet harbor at sunrise, watercolor painting, no people","Soft steam curls upward from the teacup while boats gently sway in the harbor. Slow camera push in. Continuous watercolor animation.",text\n')

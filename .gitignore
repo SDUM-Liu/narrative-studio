@@ -16,3 +16,6 @@ __pycache__/
 *.key
 configs/model-paths.yaml
 model-manifests/dequant*.json
+
+# User-supplied production packages are local inputs, never public source artifacts.
+resources/

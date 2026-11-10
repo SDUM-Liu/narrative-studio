@@ -24,9 +24,12 @@ def dumps(x): return json.dumps(x,ensure_ascii=False)
 @contextmanager
 def db():
     (ROOT/'runtime').mkdir(parents=True,exist_ok=True)
+    journal_config=ROOT/'configs/sqlite-journal-mode.txt'
+    journal=journal_config.read_text().strip().upper() if journal_config.exists() else 'WAL'
+    if journal not in {'DELETE','WAL'}:raise ValueError('Unsupported SQLite journal mode')
     c=sqlite3.connect(ROOT/'runtime/studio.sqlite3',timeout=30)
     c.row_factory=sqlite3.Row
-    c.execute('PRAGMA foreign_keys=ON');c.execute('PRAGMA journal_mode=WAL')
+    c.execute('PRAGMA foreign_keys=ON');c.execute(f'PRAGMA journal_mode={journal}')
     try: yield c; c.commit()
     except Exception: c.rollback(); raise
     finally:c.close()
@@ -59,6 +62,32 @@ def create_project(pid,name=None,template=None):
     for d in ['story','assets/characters','assets/scenes','assets/voices','production','exports']:(dest/d).mkdir(parents=True,exist_ok=True)
     (dest/'project.yaml').write_text(yaml.safe_dump(cfg,allow_unicode=True,sort_keys=False))
     return cfg
+def migrate_h3(pid):
+    """Explicit migration preserves history, and refuses to change running work."""
+    cfg=config(pid);template=yaml.safe_load((ROOT/'configs/project.template.yaml').read_text())
+    ratio=cfg['format'].get('aspect_ratio','16:9')
+    canvases={'21:9':(1792,768),'16:9':(1344,768),'4:3':(1024,768),
+              '1:1':(768,768),'3:4':(768,1024),'9:16':(768,1344)}
+    if ratio not in canvases:raise ValueError('请先显式选择H3支持的aspect_ratio')
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        if conn.execute("SELECT 1 FROM tasks WHERE project=? AND status='running'",(pid,)).fetchone():
+            raise ValueError('项目仍有运行任务，请等候结束后迁移')
+        path=project_dir(pid)/'project.yaml'
+        backup=path.with_name(f'project.pre-h3-{int(time.time())}-{uuid.uuid4().hex[:6]}.yaml')
+        shutil.copy2(path,backup)
+        cfg['format'].update(width=canvases[ratio][0],height=canvases[ratio][1],fps=24)
+        for kind in ['video','image','edit']:cfg['models'][kind]=template['models'][kind]
+        cfg['defaults']['duration']=15
+        cfg['review'].pop('require_first_frame',None);cfg['review']['require_input_review']=True
+        cfg['routing']=template['routing'];cfg['export']=template['export']
+        cfg['budget']['max_shot_duration']=max(15,cfg['budget'].get('max_shot_duration',15))
+        temporary=path.with_suffix('.yaml.tmp')
+        temporary.write_text(yaml.safe_dump(cfg,allow_unicode=True,sort_keys=False));temporary.replace(path)
+        conn.execute("UPDATE tasks SET status='failed',reason='旧生成路线已迁移；请重新提交H3或BF16资产任务',finished=? WHERE project=? AND kind IN ('video','image','edit') AND status='pending'",(time.time(),pid))
+        conn.execute('UPDATE shots SET selected_video=NULL WHERE project=?',(pid,))
+        event(conn,pid,None,'migrated_h3',str(backup.name))
+    return {'project':pid,'provider':'minimax-h3','backup':str(backup),'history_preserved':True}
 def aslist(v):
     if isinstance(v,list):return v
     if not v:return []
@@ -87,27 +116,29 @@ def import_script(pid,path,mapping=None,validate_only=False):
             key=(s['episode_id'],s['shot_id'])
             if key in seen:raise ValueError('镜头ID重复')
             seen.add(key)
-            for k in ['characters','reference_images','equipment']:s[k]=aslist(s.get(k))
+            for k in ['characters','reference_images','reference_videos','reference_audio','style_reference_images','sound_reference','equipment']:s[k]=aslist(s.get(k))
             s['characters']=[character_aliases.get(ch,ch) for ch in s['characters']]
             for ch in s['characters']:
                 if ch not in chars:raise ValueError('未注册人物: '+ch)
-            for ref in s['reference_images']:
-                if not safe_file(pid,ref).is_file():raise ValueError('参考图不存在: '+ref)
+            from engine.workflows.h3 import REFERENCE_FIELDS
+            for field in REFERENCE_FIELDS:
+                for ref in s[field]:
+                    if not safe_file(pid,ref).is_file():raise ValueError('参考素材不存在: '+ref)
             inferred=seconds(s['end'])-seconds(s['start']) if s.get('start') is not None and s.get('end') is not None else cfg['defaults']['duration']
             s['target_duration']=seconds(s.get('target_duration') or inferred)
             if not 0<s['target_duration']<=cfg['budget'].get('max_shot_duration',30):raise ValueError('镜头时长超出项目允许范围')
             if s.get('start') is not None and s.get('end') is not None:
                 start,end=seconds(s['start']),seconds(s['end'])
                 if start<0 or end<=start or abs(end-start-s['target_duration'])>.15:raise ValueError('start/end与duration不一致')
-            for k in ['scene','character_stage','prompt','negative_prompt','action_prompt','dialogue','speaker']:s.setdefault(k,'')
+            for k in ['scene','character_stage','prompt','negative_prompt','action_prompt','motion_prompt','camera_prompt','continuity_prompt','sound_intent','style_prompt','dialogue','speaker']:s.setdefault(k,'')
             if not s['action_prompt'] and s.get('action'):s['action_prompt']=s['action']
             s['speaker']=character_aliases.get(s['speaker'],s['speaker'])
             if not isinstance(s['dialogue'],str):raise ValueError('dialogue须为字符串；多段对白请逐镜或逐句导入，未静默丢弃')
             for ch in s['characters']:
                 stages=chars[ch].get('stages',{})
                 if s['character_stage'] and stages and s['character_stage'] not in stages:raise ValueError(f'人物{ch}无此成长阶段: {s["character_stage"]}')
-            if s['dialogue']:
-                if s['speaker'] not in voices:raise ValueError('对白角色未配置声线: '+str(s['speaker']))
+            if s['dialogue'] and cfg.get('export',{}).get('audio_policy') in {'external_tts','mix'}:
+                if s['speaker'] not in voices:raise ValueError('对白角色未配置外部TTS声线: '+str(s['speaker']))
             s['seed']=int(s.get('seed') or cfg['defaults']['seed'])
             if not 0<=s['seed']<2**63:raise ValueError('seed超出允许范围')
             s['effective_prompt']='，'.join(x for x in [cfg['style'].get('positive_prefix',''),s['prompt']] if x)
@@ -148,15 +179,18 @@ def tasks(pid=None,ep=None,sid=None,limit=100):
 def submit(pid,ep,sid,kind,overrides=None,retry_of=None):
     if kind not in KINDS:raise ValueError('未知任务类型')
     cfg=config(pid)
+    protected={'spec','config_snapshot','input_review','source_spec_digest','image_task_id','image_path'}
+    if protected & set(overrides or {}):raise ValueError('任务参数包含受保护字段')
     with db() as c:
         c.execute('BEGIN IMMEDIATE');shot=get_shot(c,pid,ep,sid);spec=json.loads(shot['spec'])
         if c.execute("SELECT 1 FROM tasks WHERE project=? AND episode=? AND shot=? AND kind=? AND status IN ('pending','running')",(pid,ep,sid,kind)).fetchone():raise ValueError('已有同类排队/执行任务')
         params={**cfg['format'],**cfg['models'].get(kind,{}),**(overrides or {})}
         params['requested_overrides']=overrides or {}
-        from engine.providers import resolve
-        resolve(params.get('provider','qwen3-tts' if kind=='tts' else 'comfy'),kind)
+        from engine.providers import resolve,default_provider
+        params.setdefault('provider',default_provider(kind))
+        resolve(params['provider'],kind)
         task_changes={}
-        for key in ['prompt','negative_prompt','action_prompt','seed']:
+        for key in ['prompt','negative_prompt','action_prompt','motion_prompt','camera_prompt','continuity_prompt','sound_intent','style_prompt','dialogue','seed']:
             if key not in (overrides or {}):continue
             value=overrides[key]
             if key=='seed':
@@ -167,18 +201,33 @@ def submit(pid,ep,sid,kind,overrides=None,retry_of=None):
             if key=='prompt':spec['effective_prompt']='，'.join(x for x in [cfg['style'].get('positive_prefix',''),value] if x)
             if key=='negative_prompt':spec['effective_negative']='，'.join(x for x in [cfg['style'].get('negative',''),value] if x)
         if task_changes:params['task_overrides']=task_changes
-        if kind=='video':params['frames']=int(params.get('frames',round(spec['target_duration']*params['fps']/4)*4+1))
-        if kind!='tts':
+        if kind=='video':
+            from engine.workflows import h3
+            if cfg.get('routing',{}).get('paid_api_enabled',False) is not False:raise ValueError('Local H3 requires paid_api_enabled: false')
+            params['duration']=params.get('duration',spec['target_duration'])
+            if params['duration']<spec['target_duration'] or params['duration']>cfg['budget']['max_shot_duration']:
+                raise ValueError('视频duration不得短于镜头目标或超出项目预算')
+            if params.pop('use_selected_image',False):
+                image=c.execute("SELECT * FROM tasks WHERE id=? AND status='approved'",(shot['selected_image'],)).fetchone()
+                if not image:raise ValueError('未选中已审核参考图')
+                params['reference_images']=[*params.get('reference_images',spec['reference_images']),image['output']]
+                params['image_task_id']=image['id']
+            params['spec']=spec
+            params['source_spec_digest']=h3.digest(json.loads(shot['spec']))
+            h3.validate(params,pid)
+        elif kind!='tts':
             for dimension in ['width','height']:
                 n=params.get(dimension,0)
-                if not isinstance(n,int) or not 128<=n<=2048 or n%16:raise ValueError('分辨率必须是128至2048之间的16倍数')
-            if not 1<=params.get('steps',0)<=60:raise ValueError('steps必须在1至60之间')
-        if kind=='video' and (params['frames']%4!=1 or not 9<=params['frames']<=int(cfg['budget']['max_shot_duration']*params['fps'])+1):raise ValueError('视频帧数须为4n+1且不超过项目时长预算')
+                if not isinstance(n,int) or not 128<=n<=5760 or n%16:raise ValueError('分辨率必须是128至5760之间的16倍数')
+            if not 20<=params.get('steps',0)<=200:raise ValueError('参考图最终质量steps必须在20至200之间')
+            if kind=='edit' and len(spec['reference_images'])>3:raise ValueError('Qwen编辑最多支持3张图；H3支持9张参考图')
         count=c.execute('SELECT COUNT(*) FROM tasks WHERE project=? AND episode=? AND shot=?',(pid,ep,sid)).fetchone()[0]
         if count>=cfg['budget']['max_candidates_per_shot']:raise ValueError('达到本镜头候选预算')
         if c.execute('SELECT COUNT(*) FROM tasks WHERE project=?',(pid,)).fetchone()[0]>=cfg['budget']['max_jobs']:raise ValueError('达到项目任务预算')
         if kind=='edit' and not spec['reference_images']:raise ValueError('编辑任务需要参考图')
-        if kind=='tts' and not spec['dialogue']:raise ValueError('镜头没有对白')
+        if kind=='tts':
+            if not spec['dialogue']:raise ValueError('镜头没有对白')
+            if spec['speaker'] not in cfg.get('voices',{}):raise ValueError('外部TTS需要注册声线')
         attempt=0
         if retry_of:
             old=c.execute('SELECT * FROM tasks WHERE id=?',(retry_of,)).fetchone()
@@ -195,16 +244,47 @@ def submit(pid,ep,sid,kind,overrides=None,retry_of=None):
 def retry_task(tid,overrides=None):
     with db() as conn:r=conn.execute('SELECT * FROM tasks WHERE id=?',(tid,)).fetchone()
     if not r or r['status'] in ['pending','running']:raise ValueError('任务不存在或仍在排队/执行')
-    old=json.loads(r['params']);baseline={**old.get('config_snapshot',{}).get('format',{}),**old.get('config_snapshot',{}).get('models',{}).get(r['kind'],{})}
-    # Keep explicit creative/sampling choices, use the current validated model
-    # recipe, and make a genuinely new candidate instead of replaying its cache.
-    keep=['prompt','negative_prompt','action_prompt','steps','cfg','lora','high_lora','low_lora','split_step','width','height','fps','frames','gpu']
-    params={k:old[k] for k in keep if k in old and old[k]!=baseline.get(k)}
-    for key,value in old.get('task_overrides',{}).items():
-        if key!='seed':params[key]=value['after']
+    old=json.loads(r['params'])
+    if r['kind']=='video':
+        # Preserve the complete reviewed quality recipe; retries never downgrade.
+        excluded={'spec','config_snapshot','input_review','source_spec_digest','image_task_id','image_path',
+                  'requested_overrides','task_overrides','retry_of','free_mib_at_start'}
+        params={k:v for k,v in old.items() if k not in excluded}
+    else:params=dict(old.get('requested_overrides',{}))
+    for key,value in old.get('task_overrides',{}).items():params[key]=value['after']
     params['seed']=(int(old['spec']['seed'])+1)%(2**63)
     params.update(overrides or {})
     return submit(r['project'],r['episode'],r['shot'],r['kind'],params,retry_of=tid)
+
+
+def inputs_current(params,shot,pid):
+    from engine.workflows import h3
+    approval=params.get('input_review',{})
+    spec=json.loads(shot['spec']) if isinstance(shot['spec'],str) else shot['spec']
+    if params.get('source_spec_digest')!=h3.digest(spec):return False
+    if params.get('image_task_id') and params['image_task_id']!=shot['selected_image']:return False
+    return bool(approval.get('approved') and approval.get('fingerprint')==h3.fingerprint(params,pid))
+
+
+def review_inputs(tid,decision,reason=''):
+    if decision not in {'approve','reject'}:raise ValueError('非法输入审核动作')
+    if decision=='reject' and not reason.strip():raise ValueError('退回必须填写原因')
+    from engine.workflows import h3
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row=conn.execute("SELECT * FROM tasks WHERE id=? AND kind='video' AND status='pending'",(tid,)).fetchone()
+        if not row:raise ValueError('只有排队的视频任务可以审核输入集合与配置')
+        params=json.loads(row['params']);shot=get_shot(conn,row['project'],row['episode'],row['shot'])
+        if params['source_spec_digest']!=h3.digest(json.loads(shot['spec'])):raise ValueError('镜头参考/导演稿已改变，请重新提交')
+        h3.validate(params,row['project'])
+        params['input_review']={'approved':decision=='approve','time':time.time(),'reason':reason,
+                                'fingerprint':h3.fingerprint(params,row['project'])}
+        conn.execute('UPDATE tasks SET params=?,status=?,reason=? WHERE id=?',
+                     (dumps(params),'pending' if decision=='approve' else 'rejected',reason,tid))
+        event(conn,row['project'],tid,'inputs_'+decision,reason)
+    return {'id':tid,'input_review':params['input_review']}
+
+
 def review(tid,decision,reason=''):
     if decision not in ['approve','reject']:raise ValueError('非法审核动作')
     if decision=='reject' and not reason.strip():raise ValueError('退回必须填写原因')
@@ -213,10 +293,11 @@ def review(tid,decision,reason=''):
         if not r or r['status'] not in ['review','approved']:raise ValueError('候选未就绪，无法审核')
         shot=get_shot(c,r['project'],r['episode'],r['shot'])
         if r['kind']=='video' and decision=='approve':
-            params=json.loads(r['params']);pin=params.get('image_task_id')
-            if pin!=shot['selected_image']:raise ValueError('首帧已改变，旧视频不得成为新首帧的通过版本')
+            params=json.loads(r['params'])
+            if not inputs_current(params,shot,r['project']):raise ValueError('参考素材/首帧已改变或输入配置未审核，视频需重新提交/审核')
             trim=config(r['project']).get('editing',{}).get('trims',{}).get(r['episode'],{}).get(r['shot'])
-            if trim:params['approved_edit_range']=trim;c.execute('UPDATE tasks SET params=? WHERE id=?',(dumps(params),tid))
+            params['approved_edit_range']=trim or {}
+            c.execute('UPDATE tasks SET params=? WHERE id=?',(dumps(params),tid))
         status='approved' if decision=='approve' else 'rejected'
         c.execute('UPDATE tasks SET status=?,reason=? WHERE id=?',(status,reason,tid))
         if decision=='approve':
@@ -247,16 +328,18 @@ def register_asset(pid,aid,kind,path=None,meta=None,shared=False):
         cfg.setdefault(key,{})[aid]={**(meta or {}),**({'reference':rel} if rel else {})}
         tmp=project_dir(pid)/'project.yaml.tmp';tmp.write_text(yaml.safe_dump(cfg,allow_unicode=True,sort_keys=False));tmp.replace(project_dir(pid)/'project.yaml')
     return {'id':aid,'path':rel}
-def bind_references(pid,ep,sid,refs,prompt=None):
+def bind_references(pid,ep,sid,refs,prompt=None,field='reference_images'):
     config(pid)
-    if not 1<=len(refs)<=3:raise ValueError('参考图数量必须在1至3之间')
+    from engine.workflows.h3 import REFERENCE_FIELDS
+    if field not in REFERENCE_FIELDS:raise ValueError('非法参考字段')
     for ref in refs:
-        if not safe_file(pid,ref).is_file():raise ValueError('参考图不存在: '+ref)
+        if not safe_file(pid,ref).is_file():raise ValueError('参考素材不存在: '+ref)
     with db() as conn:
         conn.execute('BEGIN IMMEDIATE');shot=get_shot(conn,pid,ep,sid)
-        if conn.execute("SELECT 1 FROM tasks WHERE project=? AND episode=? AND shot=? AND status IN ('pending','running')",(pid,ep,sid)).fetchone():raise ValueError('镜头有执行或排队任务，绑定前请完成当前任务')
-        spec=json.loads(shot['spec']);spec.setdefault('production_revisions',[]).append({'time':time.time(),'reference_images':spec['reference_images'],'effective_prompt':spec['effective_prompt']})
-        spec['reference_images']=refs
+        if conn.execute("SELECT 1 FROM tasks WHERE project=? AND episode=? AND shot=? AND status IN ('pending','running')",(pid,ep,sid)).fetchone():raise ValueError('镜头有执行或排队任务，绑定前请完成或退回当前任务')
+        spec=json.loads(shot['spec']);spec.setdefault('production_revisions',[]).append({'time':time.time(),field:spec.get(field,[]),'effective_prompt':spec['effective_prompt']})
+        spec[field]=refs
         if prompt:spec['effective_prompt']=prompt
-        conn.execute('UPDATE shots SET spec=? WHERE project=? AND episode=? AND id=?',(dumps(spec),pid,ep,sid));event(conn,pid,None,'references_bound',f'{ep}/{sid}: {dumps(refs)}')
-    return {'shot':sid,'references':refs,'original_preserved':True}
+        conn.execute('UPDATE shots SET spec=?,selected_video=NULL WHERE project=? AND episode=? AND id=?',(dumps(spec),pid,ep,sid))
+        event(conn,pid,None,'references_bound',f'{ep}/{sid}: {field}: {dumps(refs)}')
+    return {'shot':sid,field:refs,'original_preserved':True}

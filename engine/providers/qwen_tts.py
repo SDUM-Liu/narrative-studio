@@ -8,7 +8,7 @@ def required_files(p):
 def run(task,gpu,out):
     try:httpx.post(endpoint(gpu)+'/free',json={'unload_models':True,'free_memory':False},trust_env=False,timeout=30)
     except httpx.TransportError:pass
-    env={**os.environ,'CUDA_VISIBLE_DEVICES':str(gpu),'OMP_NUM_THREADS':'6','HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1'}
+    env={**os.environ,'CUDA_VISIBLE_DEVICES':os.environ.get('NARRATIVE_GPU_DEVICE',str(gpu)),'OMP_NUM_THREADS':os.environ.get('OMP_NUM_THREADS','4'),'HF_HUB_OFFLINE':'1','TRANSFORMERS_OFFLINE':'1'}
     with (out/'provider.log').open('w') as log:
         subprocess.run([str(ROOT/'.venv-tts/bin/python'),str(ROOT/'scripts/tts_infer.py'),str(out/'task.json'),str(out)],env=env,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=task['params'].get('timeout',1200))
     return out/'voice.wav',json.loads((out/'tts-metrics.json').read_text())

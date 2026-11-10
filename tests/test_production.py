@@ -18,7 +18,7 @@ def shot(sid='001',**kw):return {'episode':'01','shot':sid,'duration':6,'positiv
 def complete(tid,pid='one'):
     with c.db() as conn:conn.execute("UPDATE tasks SET status='review',output='production/test.png' WHERE id=?",(tid,))
 def test_import_atomic_and_original(studio):
-    with pytest.raises(ValueError,match='row'):script(studio,[shot(),shot('002',dialogue='hello',speaker='missing')])
+    with pytest.raises(ValueError,match='row'):script(studio,[shot(),shot('002',characters=['missing'])])
     assert c.list_shots('one')==[]
     script(studio,[shot()]);s=c.list_shots('one')[0]['spec'];assert s['original']['positive']=='test scene';assert s['prompt']=='test scene'
     with pytest.raises(ValueError,match='重复'):script(studio,[shot('002'),shot('002')])
@@ -30,15 +30,19 @@ def test_review_gate_and_rejection(studio):
     script(studio,[shot()]);vid=c.submit('one','01','001','video')
     with c.db() as conn:
         v=dict(conn.execute('SELECT * FROM tasks WHERE id=?',(vid,)).fetchone());s=c.get_shot(conn,'one','01','001');assert ready(v,s,conn) is None
-    image=c.submit('one','01','001','image');complete(image)
-    with pytest.raises(ValueError,match='原因'):c.review(image,'reject','')
-    c.review(image,'reject','wrong face')
-    with c.db() as conn:assert c.get_shot(conn,'one','01','001')['selected_image'] is None
-    image2=c.submit('one','01','001','image',retry_of=image);complete(image2);c.review(image2,'approve')
-    with c.db() as conn:
-        s=c.get_shot(conn,'one','01','001');assert s['selected_image']==image2
-        v['params']=json.dumps({'spec':{},'width':768,'height':432})
-        assert ready(v,s,conn)['image_task_id']==image2
+    from engine.providers import minimax_h3
+    original=minimax_h3.required_files
+    minimax_h3.required_files=lambda p:[]
+    try:
+        c.review_inputs(vid,'approve','文本和素材集合已审')
+        with c.db() as conn:
+            v=dict(conn.execute('SELECT * FROM tasks WHERE id=?',(vid,)).fetchone())
+            assert ready(v,c.get_shot(conn,'one','01','001'),conn)['input_review']['approved']
+            assert c.get_shot(conn,'one','01','001')['selected_image'] is None
+    finally:minimax_h3.required_files=original
+    with pytest.raises(ValueError,match='原因'):c.review_inputs(vid,'reject','')
+    c.review_inputs(vid,'reject','wrong scene')
+    assert c.tasks('one')[0]['status']=='rejected'
 def test_restart_versions_isolation(studio):
     for pid in ['one','two']:script(studio,[shot()],pid)
     a=c.submit('one','01','001','image');complete(a);c.review(a,'approve');c.init()
@@ -56,7 +60,7 @@ def test_no_silent_overwrite_and_budget(studio):
     with pytest.raises(ValueError,match='同类'):c.submit('one','01','001','image')
     with pytest.raises(ValueError,match='已存在'):script(studio,[shot()])
     with pytest.raises(ValueError,match='分辨率'):c.submit('one','01','001','video',{'width':99999})
-    with pytest.raises(ValueError,match='帧数'):c.submit('one','01','001','video',{'frames':100})
+    with pytest.raises(ValueError,match='frames'):c.submit('one','01','001','video',{'frames':100})
 def test_media_and_cross_origin(studio):
     from fastapi.testclient import TestClient
     from engine.review.app import app
@@ -102,7 +106,7 @@ def test_blocked_videos_do_not_starve_first_frames(studio,monkeypatch):
     import engine.scheduler.worker as worker
     import httpx
     monkeypatch.setattr(worker,'ROOT',studio)
-    monkeypatch.setattr(worker,'gpu_stats',lambda gpu:[50000,0])
+    monkeypatch.setattr(worker,'gpu_stats',lambda gpu:[80000,0])
     monkeypatch.setattr(worker.comfy,'required_files',lambda params:[])
     class Reply:
         status_code=200
@@ -114,13 +118,14 @@ def test_blocked_videos_do_not_starve_first_frames(studio,monkeypatch):
     image=c.submit('one','01','0','image')
     claimed=worker.claim(0,['video','image'])
     assert claimed and claimed['id']==image
-def test_retry_uses_current_recipe_and_new_seed(studio):
-    script(studio,[shot(seed=1)]);a=c.submit('one','01','001','video',{'text_encoder':'obsolete.pth'})
+def test_retry_preserves_exact_quality_and_new_seed(studio):
+    script(studio,[shot(seed=1)]);a=c.submit('one','01','001','video',{'steps':80})
+    c.review_inputs(a,'approve')
     with c.db() as conn:conn.execute("UPDATE tasks SET status='failed' WHERE id=?",(a,))
-    cfg=c.config('one');cfg['models']['video']['text_encoder']='verified.safetensors';(c.project_dir('one')/'project.yaml').write_text(yaml.safe_dump(cfg))
+    cfg=c.config('one');cfg['models']['video']['steps']=50;(c.project_dir('one')/'project.yaml').write_text(yaml.safe_dump(cfg))
     b=c.retry_task(a)
     rows={t['id']:t for t in c.tasks('one')}
-    assert rows[b]['params']['text_encoder']=='verified.safetensors'
+    assert rows[b]['params']['steps']==80
     assert rows[b]['params']['spec']['seed']==2
-    assert rows[a]['params']['text_encoder']=='obsolete.pth'
+    assert 'input_review' not in rows[b]['params']
     assert c.list_shots('one')[0]['spec']['seed']==1

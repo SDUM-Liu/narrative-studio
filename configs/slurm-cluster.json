@@ -1,0 +1,12 @@
+{
+  "account": "grads",
+  "qos": "q_grads",
+  "observed_at": "2026-11-08 Asia/Shanghai",
+  "limits": {"gpus_per_job": 2, "memory_gib_per_job": 64, "cpus_per_job": 32},
+  "gpu_classes": [
+    {"partition": "GPUHigh", "nodes": ["gh6"], "model": "NVIDIA A800 80GB PCIe", "vram_mib": 81920, "rank": 100, "vram_mode": "normal"},
+    {"partition": "GPUNorm", "nodes": ["gn8", "gn12"], "model": "NVIDIA GeForce RTX 4090", "vram_mib": 24564, "rank": 80, "vram_mode": "low"},
+    {"partition": "GPUNorm", "nodes": ["gn3", "gn4", "gn5", "gn6"], "model": "NVIDIA GeForce RTX 3090", "vram_mib": 24576, "rank": 60, "vram_mode": "low"},
+    {"partition": "GPULite", "nodes": ["gl1", "gl2", "gl3", "gl4", "gl5", "gl6", "gl7", "gl8"], "model": "NVIDIA GeForce RTX 2080 Ti", "vram_mib": 11264, "rank": 20, "vram_mode": "low"}
+  ]
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "episode_id": "01",
+    "shot_id": "001",
+    "scene": "harbor",
+    "prompt": "A white porcelain teacup on a wooden terrace overlooking a quiet harbor at sunrise. Warm natural light, detailed ceramic glaze, coherent reflections, cinematic composition.",
+    "motion_prompt": "Steam rises in delicate changing curls. Boats gently sway. Keep the cup shape and location consistent for the entire shot.",
+    "camera_prompt": "One continuous slow dolly toward the teacup, stable horizon, no cuts.",
+    "continuity_prompt": "Preserve the same cup, terrace, light direction and harbor geography throughout.",
+    "sound_intent": "Native synchronized stereo sound: gentle waves, distant gulls, soft breeze. No speech and no music.",
+    "negative_prompt": "watermarks, unwanted captions, abrupt transitions, flicker, object deformation",
+    "reference_images": [],
+    "reference_videos": [],
+    "reference_audio": [],
+    "target_duration": 15,
+    "seed": 12345
+  }
+]
