@@ -81,6 +81,7 @@ routing:
   gpu_mode: tensor-parallel
   distributed: true
 export:
+  preserve_source_format: false
   audio_policy: native
   allow_silent: false
   video_crf: 16

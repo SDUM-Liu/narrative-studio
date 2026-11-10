@@ -19,3 +19,6 @@ model-manifests/dequant*.json
 
 # User-supplied production packages are local inputs, never public source artifacts.
 resources/
+
+# Local provider credentials (including dotfiles supplied outside .env).
+.*apikey*

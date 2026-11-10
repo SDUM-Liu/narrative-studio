@@ -68,7 +68,7 @@ def main():
  if a.action=='stop':stop(a.only);return
  if a.action=='restart':stop(a.only)
  (ROOT/'runtime').mkdir(exist_ok=True);(ROOT/'logs').mkdir(exist_ok=True)
- devices=[] if a.only==['review'] else visible_devices()
+ devices=[] if a.only and set(a.only)<={'review','api'} else visible_devices()
  if a.gpus is None:a.gpus=list(range(len(devices)))
  if any(gpu<0 or gpu>=len(devices) for gpu in a.gpus):p.error('--gpus must be ordinals within the allocated CUDA devices')
  compute=[f'{kind}-{gpu+a.lane_offset}' for gpu in a.gpus for kind in ['comfy','worker']]
@@ -82,6 +82,7 @@ def main():
   h3_devices=[devices[i] for i in a.gpus]
   if len(h3_devices)<2:raise RuntimeError('H3 needs the complete GPU group (at least two cards)')
   start('h3',[py,'-m','engine.scheduler.worker','--gpu','-1','--kinds','video'],{'CUDA_VISIBLE_DEVICES':','.join(h3_devices),'NARRATIVE_H3_DEVICES':json.dumps(h3_devices)})
+ if 'api' in selected:start('api',[py,'-m','engine.scheduler.worker','--gpu','-2','--kinds','video'])
  if 'review' in selected:start('review',[py,'-m','uvicorn','engine.review.app:app','--host','127.0.0.1','--port','7868','--no-access-log'])
  for ordinal in a.gpus:
   gpu=ordinal+a.lane_offset

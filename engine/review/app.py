@@ -30,7 +30,12 @@ def health():
     from scripts.services import load,alive
     services={name:{'alive':alive(item),'pid':item['pid'],'host':item.get('host'),'job_id':item.get('job_id'),'gpu_device':item.get('gpu_device')} for name,item in load().items()}
     paused={p.name.split('-')[1].split('.')[0]:json.loads(p.read_text()) for p in (c.ROOT/'runtime').glob('gpu-*.paused.json')}
-    return {'ok':True,'name':'叙映工坊','time':time.time(),'deployment':states,'services':services,'paused_gpus':paused,'capabilities':json.loads(caps.read_text()) if caps.exists() else {},'paid_api_enabled':False}
+    return {'ok':True,'name':'叙映工坊','time':time.time(),'deployment':states,'services':services,'paused_gpus':paused,'capabilities':json.loads(caps.read_text()) if caps.exists() else {},'paid_api_enabled':any(c.config(p.parent.name).get('routing',{}).get('paid_api_enabled',False) for p in (c.ROOT/'projects').glob('*/project.yaml'))}
+@app.get('/api/video-models')
+def video_models():
+    from engine.video_models import catalog
+    return catalog()
+
 @app.get('/api/projects')
 def projects():
     result=[]
@@ -60,7 +65,7 @@ def events(pid:str,task:str|None=None):
 @app.get('/media/{pid}/{path:path}')
 def media(pid:str,path:str):
     c.config(pid);p=c.safe_file(pid,path)
-    if not p.is_file() or p.suffix.lower() not in ['.png','.jpg','.jpeg','.webp','.mp4','.wav','.mp3','.srt','.csv']:raise HTTPException(404)
+    if not p.is_file() or p.suffix.lower() not in ['.png','.jpg','.jpeg','.webp','.mp4','.mov','.wav','.mp3','.srt','.csv']:raise HTTPException(404)
     return FileResponse(p)
 class Review(BaseModel):
     decision:str
@@ -80,9 +85,29 @@ class Retry(BaseModel):params:dict=Field(default_factory=dict)
 @app.post('/api/tasks/{tid}/retry')
 def retry(tid:str,body:Retry):
     return {'task':c.retry_task(tid,body.params)}
-class NewProject(BaseModel):id:str;name:str
+class NewProject(BaseModel):id:str;name:str;video_model:str|None=None
 @app.post('/api/projects')
-def create(body:NewProject):return c.create_project(body.id,body.name)
+def create(body:NewProject):
+    from engine.video_models import PROFILES,configure
+    if body.video_model and body.video_model not in PROFILES:raise ValueError('Unknown video profile')
+    c.create_project(body.id,body.name)
+    if body.video_model:configure(body.id,body.video_model)
+    return c.config(body.id)
+
+class VideoModel(BaseModel):
+    profile:str
+    resolution:str|None=None
+    ratio:str|None=None
+    duration:int|None=None
+    options:dict=Field(default_factory=dict)
+
+@app.post('/api/projects/{pid}/video-model')
+def video_model(pid:str,body:VideoModel):
+    from engine.video_models import configure
+    return configure(pid,body.profile,body.resolution,body.ratio,body.duration,body.options)
+
+@app.post('/api/tasks/{tid}/resume-api')
+def resume_api(tid:str):return c.resume_api(tid)
 class Import(BaseModel):shots:list[dict];mapping:dict=Field(default_factory=dict)
 @app.post('/api/projects/{pid}/import')
 def import_script(pid:str,body:Import):

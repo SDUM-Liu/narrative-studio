@@ -1,8 +1,8 @@
-# H3 本地重构交付说明
+# H3 与官方视频 API 架构
 
 ## 设计决策
 
-1. 视频唯一 provider 为 minimax-h3，调用隔离环境中的 SGLang 原生 Python 推理；不注册 Comfy 视频，不调用云端生成 API。
+1. 默认本地 provider 为 minimax-h3，调用隔离环境中的 SGLang；显式 API profile 注册 minimax-h3-api（标准版 / Max）和 seedance-api（2.0 / 2.5）。能力表 engine/video_models.py 驱动 CLI 与审核台，engine/workflows/video.py 根据 provider 分发校验。不注册 Comfy 视频，不自动切换或降级。
 2. 纯文本选择 FL2VA；有参考素材选择 Ref2VA。两者都是同一官方 H3 Base 的任务分区，不是两条不同模型路线。每任务只加载一个分区，并把整个双 A800 分配交给 TP2，不同时驻留两套 H3 服务。
 3. 本地可验证的上游质量配方是 768 短边、24 FPS、50 步、官方原始 BF16/FP32、精确 FA 注意力。关闭 torch.compile、TF32、BF16 低精度归约和 autocast，不引入近似缓存、量化或加速 LoRA。FP32 VAE 解码及 15 秒多参考配置会增加资源需求，等待实机容量验证。
 4. 不用普通放大伪装官方 2K；完整 Context-IR 与 2K 重生成尚未开放。当前替代是本地场景/动作/镜头/连续性/对白/声音提示组织，不声称等价于托管 Context-IR。
@@ -46,3 +46,15 @@ produce 不再隐式生成首帧与 TTS；video 不接受 Wan 的 high/low、4n+
 ## 制作包与分集批处理补充
 
 新增 scripts/import_production_package.py、scripts/run_episode.py、tests/test_production_package.py；扩展 worker 的 project / episode 过滤与有限批处理，扩展 Slurm 提交参数。原始制作包通过 .gitignore 的 resources/ 排除，不随公开源码同步。安装脚本显式禁用上游可选 Rust 扩展，处理无 Cargo 环境中的构建失败。
+
+
+## 官方 API 扩展
+
+- engine/providers/cloud_video.py 直连 MiniMax V2 / Ark 官方异步接口，原容器下载、媒体验证、usage/任务 ID 与实际编码记录；HTTP key 只来自进程环境。
+- engine/workflows/cloud_video.py 独立校验各型号限制，并构造原生 content[]。文件引用仍经项目隔离与 SHA256 输入审核；Ark 视频使用显式远端素材位置。
+- worker lane -2 不访问 CUDA，与本地 TP2 的 -1 分离；持久化提交意图和远端 ID，worker 重启后继续查询；模糊 POST 结果不自动重提。resume-api 与付费新生成 retry 区别明确。
+- API profile 默认 preserve_source_format，检查整集源素材规格一致，再保留分辨率、HEVC/10bit、原生音轨和 MOV。字幕编码维持原像素格式；混合规格须显式选择统一导出策略。
+- 模型参数切换先备份 project.yaml，只影响新任务；原有已审核任务的快照与指纹不变。所有模式都保留输入/输出两次审核。
+- 本地权重安装与 Slurm 策略不因 API 扩展改变。API 仅需 requirements-control.txt，不安装云服务商 SDK。回归测试 mock HTTP 计费边界并实际运行 FFmpeg，不假称真实付费 API 已验证。
+
+型号分辨率差异、示例、限制与官方来源见 [VIDEO_API.md](VIDEO_API.md)。

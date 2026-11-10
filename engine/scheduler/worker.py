@@ -1,4 +1,4 @@
-"""Durable H3 allocation worker (-1), or an optional single-GPU asset worker."""
+"""Durable local H3 (-1), official API (-2), or optional GPU asset workers."""
 import argparse,json,os,signal,subprocess,time,fcntl,threading
 from pathlib import Path
 from engine.core import ROOT,db,dumps,event,get_shot,safe_file,project_dir,inputs_current
@@ -40,7 +40,8 @@ def claim(gpu,kinds,project=None,episode=None):
             if episode and t['episode']!=episode:continue
             if t['kind'] not in kinds:continue
             provider=json.loads(t['params']).get('provider',default_provider(t['kind']))
-            if (provider=='minimax-h3') != (gpu==-1):continue
+            lane=-1 if provider=='minimax-h3' else -2 if provider in {'minimax-h3-api','seedance-api'} else None
+            if lane!=gpu and (lane is not None or gpu<0):continue
             if provider=='comfy' and not comfy_ready:continue
             shot=get_shot(c,t['project'],t['episode'],t['shot']);p=ready(t,shot,c)
             if p is None:continue
@@ -53,7 +54,7 @@ def claim(gpu,kinds,project=None,episode=None):
                     result=subprocess.run(['nvidia-smi','--query-gpu=memory.free','--format=csv,noheader,nounits',f'--id={device}'],capture_output=True,text=True,check=True,timeout=10)
                     stats.append(int(result.stdout.strip()))
                 free=min(stats)
-            need=p.get('min_free_mib',{'image':60000,'edit':60000,'tts':6500}.get(t['kind'],70000))
+            need=0 if gpu==-2 else p.get('min_free_mib',{'image':60000,'edit':60000,'tts':6500}.get(t['kind'],70000))
             if free<need:continue
             p['free_mib_at_start']=free
             c.execute("UPDATE tasks SET status='running',gpu=?,started=?,params=? WHERE id=?",(gpu,time.time(),dumps(p),t['id']))
@@ -61,7 +62,7 @@ def claim(gpu,kinds,project=None,episode=None):
             return {**t,'params':p,'gpu':gpu}
     return None
 def perform(t,gpu):
-    out=project_dir(t['project'])/'production'/t['episode']/t['shot']/t['id'];out.mkdir(parents=True,exist_ok=False)
+    out=project_dir(t['project'])/'production'/t['episode']/t['shot']/t['id'];out.mkdir(parents=True,exist_ok=gpu==-2)
     (out/'task.json').write_text(dumps(t))
     metrics={};start=time.monotonic();samples=[];process_peaks=[];stop=threading.Event()
     services_path=ROOT/'runtime/services.json'
@@ -126,6 +127,8 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--gpu',type=int,required=True);parser.add_argument('--kinds',default='image,edit,tts')
     parser.add_argument('--project');parser.add_argument('--episode');parser.add_argument('--exit-when-idle',action='store_true')
     a=parser.parse_args()
+    if a.gpu < -2:parser.error('Supported worker lanes: -2 API, -1 local H3, or a nonnegative GPU')
+    if a.gpu==-2 and a.kinds!='video':parser.error('API worker requires --kinds video')
     if a.exit_when_idle and not (a.project and a.episode):parser.error('Finite production requires --project and --episode')
     (ROOT/'runtime').mkdir(exist_ok=True)
     lock=(ROOT/'runtime'/f'gpu-{a.gpu}.lock').open('w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -134,7 +137,9 @@ def main():
     with db() as c:
         # A newly locked lane owns its old running records. Never overwrite their files.
         for r in c.execute("SELECT * FROM tasks WHERE status='running' AND gpu=?",(a.gpu,)).fetchall():
-            c.execute("UPDATE tasks SET status='failed',reason='worker重启：保留中断版本；请retry创建新版本',finished=? WHERE id=?",(time.time(),r['id']))
+            if a.gpu==-2:
+                c.execute("UPDATE tasks SET status='pending',reason='API worker重启：继续查询已保存任务，不重复生成' WHERE id=?",(r['id'],))
+            else:c.execute("UPDATE tasks SET status='failed',reason='worker重启：保留中断版本；请retry创建新版本',finished=? WHERE id=?",(time.time(),r['id']))
             event(c,r['project'],r['id'],'interrupted','Worker restarted')
     print(f'worker gpu={a.gpu} started',flush=True)
     while True:

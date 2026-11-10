@@ -8,7 +8,9 @@ def inspect(path):
         duration=float(c.duration/av.time_base) if c.duration else max((float(s.duration*s.time_base) for s in c.streams if s.duration is not None),default=0.)
         data={'duration':duration,'audio':audio is not None,'has_audio':audio is not None}
         if video:data.update(width=video.width,height=video.height,fps=float(video.average_rate or 0),frames=sum(1 for _ in c.decode(video)))
-        if video:data['video_codec']=video.codec_context.name
+        if video:data.update(video_codec=video.codec_context.name, pixel_format=video.codec_context.format.name,
+                             color_primaries=video.codec_context.color_primaries, color_trc=video.codec_context.color_trc,
+                             colorspace=video.codec_context.colorspace, color_range=video.codec_context.color_range)
         if audio:data.update(audio_codec=audio.codec_context.name,audio_sample_rate=audio.rate,audio_channels=audio.codec_context.layout.nb_channels)
         return data
 def export_episode(pid,ep,draft=False):
@@ -30,6 +32,23 @@ def export_episode(pid,ep,draft=False):
             selected.append((s,dict(video),dict(voice) if voice else None))
     dest=project_dir(pid)/'exports'/f'{ep}-{int(time.time())}-{uuid.uuid4().hex[:8]}';dest.mkdir(parents=True)
     clips=[];timeline=[];subtitle=[];position=0.;fmt=cfg['format'];options=cfg.get('export',{})
+    preserve=options.get('preserve_source_format',False)
+    inspected={v['id']:inspect(safe_file(pid,v['output'])) for _,v,_ in selected}
+    if preserve:
+        signatures={(i.get('width'),i.get('height'),round(i.get('fps',0),2),i.get('video_codec'),i.get('pixel_format'),
+                     i.get('audio_codec'),i.get('audio_sample_rate'),i.get('audio_channels'),
+                     i.get('color_primaries'),i.get('color_trc'),i.get('colorspace'),i.get('color_range'),
+                     Path(v['output']).suffix.lower()) for _,v,_ in selected for i in [inspected[v['id']]]}
+        if len(signatures)!=1:raise ValueError('原始视频规格不同；请先统一模型输出规格，或显式关闭 preserve_source_format 并设置统一导出画布')
+        first=next(iter(inspected.values()));fmt={**fmt,'width':first['width'],'height':first['height'],'fps':first['fps']}
+    container='mov' if preserve and any(Path(v['output']).suffix.lower()=='.mov' for _,v,_ in selected) else 'mp4'
+    clean=dest/('clean.'+container);preview=dest/('preview.'+container)
+    def encoding(info):
+        codec='libx265' if preserve and info.get('video_codec')=='hevc' else 'libx264'
+        pixel=info.get('pixel_format','yuv420p') if preserve else 'yuv420p'
+        args=['-c:v',codec,'-preset',options.get('video_preset','slow'),'-crf',str(options.get('video_crf',16)),'-pix_fmt',pixel,'-threads','6']
+        if codec=='libx265':args+=['-x265-params','pools=4:frame-threads=2','-tag:v','hvc1']
+        return args
     def stamp(t):
         ms=round(t*1000);return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
     def run(args):
@@ -37,7 +56,7 @@ def export_episode(pid,ep,draft=False):
         with (dest/'ffmpeg.log').open('a') as f:f.write(r.stderr)
         if r.returncode:raise RuntimeError('FFmpeg失败，查看导出目录ffmpeg.log')
     for i,(s,v,a) in enumerate(selected):
-        vp=safe_file(pid,v['output']);info=inspect(vp)
+        vp=safe_file(pid,v['output']);info=inspected[v['id']]
         duration=info['duration']
         if not info.get('width') or not duration:raise ValueError(f"{s['id']}: 无有效视频流/时长")
         if duration<s['spec']['target_duration']-.75:raise ValueError(f"{s['id']}: 实际视频短于目标时长，拒绝循环或静帧补足")
@@ -62,10 +81,10 @@ def export_episode(pid,ep,draft=False):
             args+=['-i',str(ap)]
         elif not has_native:
             args+=['-f','lavfi','-i','anullsrc=r=32000:cl=stereo']
-        clip=dest/f'{i:03}.mp4'
+        clip=dest/f'{i:03}.{container}'
         unchanged=edit_in==0 and abs(edit_out-info['duration'])<.001
         matches=info['width']==fmt['width'] and info['height']==fmt['height'] and abs(info['fps']-fmt['fps'])<.01
-        if policy=='native' and has_native and unchanged and matches and info.get('video_codec')=='h264' and info.get('audio_codec')=='aac':
+        if policy=='native' and has_native and unchanged and matches and (preserve or info.get('video_codec')=='h264' and info.get('pixel_format')=='yuv420p') and (info.get('audio_codec')=='aac' or preserve and container=='mov' and info.get('audio_codec','').startswith('pcm_')):
             shutil.copy2(vp,clip)
         else:
             args+=['-map','0:v:0']
@@ -73,11 +92,11 @@ def export_episode(pid,ep,draft=False):
                 if not has_native:raise ValueError('混音需要原生音轨')
                 args+=['-filter_complex','[0:a:0][1:a:0]amix=inputs=2:duration=first:normalize=0,apad[mix]','-map','[mix]']
             else:args+=['-map','0:a:0' if policy=='native' and has_native else '1:a:0']
-            if unchanged and matches:args+=['-c:v','copy']
+            if unchanged and matches and (preserve or info.get('video_codec')=='h264' and info.get('pixel_format')=='yuv420p'):args+=['-c:v','copy']
             else:
                 args+=['-vf',f"scale={fmt['width']}:{fmt['height']}:force_original_aspect_ratio=decrease,pad={fmt['width']}:{fmt['height']}:(ow-iw)/2:(oh-ih)/2,fps={fmt['fps']}",
-                       '-c:v','libx264','-preset',options.get('video_preset','slow'),'-crf',str(options.get('video_crf',16)),'-pix_fmt','yuv420p','-threads','6']
-            if policy=='native' and has_native and info.get('audio_codec')=='aac' and info.get('audio_sample_rate')==32000 and info.get('audio_channels')==2:
+                       ]+encoding(info)
+            if policy=='native' and has_native and (info.get('audio_codec')=='aac' or preserve and container=='mov' and info.get('audio_codec','').startswith('pcm_')):
                 args+=['-c:a','copy']
             else:
                 if policy!='mix':args+=['-af','apad']
@@ -87,6 +106,9 @@ def export_episode(pid,ep,draft=False):
         clips.append(clip)
         audio_source='native' if policy=='native' and has_native else 'mix' if policy=='mix' else 'external_tts' if a else 'explicit_silence'
         timeline.append({'shot':s['id'],'start':position,'duration':duration,'planned_duration':s['spec']['target_duration'],
+                         'provider':json.loads(v['params']).get('provider'),'model':json.loads(v['params']).get('model'),
+                         'resolution':json.loads(v['params']).get('resolution'),'width':info['width'],'height':info['height'],
+                         'video_codec':info.get('video_codec'),'pixel_format':info.get('pixel_format'),
                          'edit_in':edit_in,'edit_out':edit_out,'edit_reason':trim.get('reason',''),
                          'video':str(vp),'audio':str(safe_file(pid,a['output'])) if a else str(vp) if has_native else None,
                          'video_task':v['id'],'video_review_status':v['status'],'voice_task':a['id'] if a else None,
@@ -101,7 +123,7 @@ def export_episode(pid,ep,draft=False):
     with (dest/'timeline.csv').open('w',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(timeline[0]));w.writeheader();w.writerows(timeline)
     concat=dest/'concat.txt';concat.write_text('\n'.join(f"file '{p.name}'" for p in clips))
-    run(['-f','concat','-safe','1','-i',str(concat),'-c','copy','-movflags','+faststart',str(dest/'clean.mp4')])
+    run(['-f','concat','-safe','1','-i',str(concat),'-c','copy','-movflags','+faststart',str(clean)])
     if subtitle or draft:
         filters=[]
         if subtitle:filters.append(f"subtitles={dest/'subtitles.srt'}:fontsdir={ROOT/'shared-assets/fonts'}:force_style='Fontname=Noto Sans CJK SC,Fontsize=18,MarginV=28'")
@@ -109,10 +131,10 @@ def export_episode(pid,ep,draft=False):
             label=dest/'draft.ass'
             label.write_text('[Script Info]\nScriptType: v4.00+\nPlayResX: '+str(fmt['width'])+'\nPlayResY: '+str(fmt['height'])+'\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Draft,Noto Sans CJK SC,15,&H00FFFFFF,&H000000FF,&H80000000,&H80000000,0,0,0,0,100,100,0,0,3,1,0,8,10,10,14,1\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\nDialogue: 0,0:00:00.00,1:00:00.00,Draft,,0,0,0,,动态技术预览 · 未完成影视质量验收\n')
             filters.append(f"ass={label}:fontsdir={ROOT/'shared-assets/fonts'}")
-        run(['-i',str(dest/'clean.mp4'),'-vf',','.join(filters),'-c:v','libx264','-preset',options.get('video_preset','slow'),'-crf',str(options.get('video_crf',16)),'-threads','6','-c:a','copy','-movflags','+faststart',str(dest/'preview.mp4')])
+        run(['-i',str(clean),'-vf',','.join(filters),*encoding(next(iter(inspected.values()))),'-c:a','copy','-movflags','+faststart',str(preview)])
     else:
-        shutil.copy2(dest/'clean.mp4',dest/'preview.mp4')
-    result=inspect(dest/'preview.mp4');result['draft']=draft;result['audio_sources']=[x['audio_source'] for x in timeline];result['clips']=timeline;result['lip_sync']='unverified';(dest/'validation.json').write_text(json.dumps(result,indent=2));return {'path':str(dest),'media':result}
+        shutil.copy2(clean,preview)
+    result=inspect(preview);result['draft']=draft;result['audio_sources']=[x['audio_source'] for x in timeline];result['clips']=timeline;result['lip_sync']='unverified';(dest/'validation.json').write_text(json.dumps(result,indent=2));return {'path':str(dest),'clean':str(clean),'preview':str(preview),'media':result}
 def contact_sheet(pid,ep):
     from PIL import Image,ImageDraw
     with db() as c:rows=c.execute("SELECT shot,output,id FROM tasks WHERE project=? AND episode=? AND kind IN ('image','edit') AND output IS NOT NULL ORDER BY created",(pid,ep)).fetchall()

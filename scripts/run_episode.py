@@ -15,6 +15,7 @@ from engine.scheduler import worker
 def main():
     if len(sys.argv)!=3:raise SystemExit('Usage: python -m scripts.run_episode PROJECT EPISODE')
     pid,ep=map(core.ident,sys.argv[1:]);cfg=core.config(pid)
+    if cfg['models']['video'].get('provider')!='minimax-h3':raise ValueError('Slurm episode runner requires local H3; API projects use worker lane -2')
     if not os.environ.get('SLURM_JOB_ID'):raise RuntimeError('Episode production must run inside Slurm')
     devices=visible_devices()
     if len(devices)!=cfg['models']['video']['num_gpus']:raise RuntimeError('Allocated GPU count differs from reviewed project configuration')

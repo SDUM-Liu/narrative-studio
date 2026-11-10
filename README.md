@@ -1,10 +1,32 @@
 # 叙映工坊 · Narrative Studio
 
-面向成片制作的本地 AI 影视工程：project / episode / shot、导演稿导入、资产绑定、SQLite 队列、输入审核、候选管理、视频审核和时间线导出。
+面向成片制作的 AI 影视工程：project / episode / shot、导演稿导入、资产绑定、SQLite 队列、输入审核、候选管理、视频审核和时间线导出。
 
-**唯一主视频后端是本地 MiniMax H3 Base（SGLang）**。不接收费云 API，不需要 MiniMax 密钥，不保留 Wan2.2 fallback。Qwen-Image / Edit 只用于可选参考资产；Qwen3-TTS 只用于显式选择的外部配音。
+**默认视频后端为本地 MiniMax H3 Base（SGLang）**；现支持显式选择 MiniMax H3 标准版 / Max 官方 API、Seedance 2.0 / 2.5 火山方舟 API。不保留 Wan2.2 fallback，不自动切换供应商。Qwen-Image / Edit 只用于可选参考资产；Qwen3-TTS 只用于显式选择的外部配音。
 
-默认使用官方原始 BF16/FP32 权重、精确注意力、50 步完整采样、24 FPS、15 秒目标时长、768 短边与 32 kHz 原生立体声音频。没有 Lightning、Turbo、低步数 LoRA、量化或失败后自动降级。50 步是上游完整质量配方；无限加步数不保证画质继续提高。上游 Base 本身包含 CFG 蒸馏，这与另外安装 few-step / timestep 蒸馏加速权重是不同的事。
+本地默认使用官方原始 BF16/FP32 权重、精确注意力、50 步完整采样、24 FPS、15 秒目标时长、768 短边与 32 kHz 原生立体声音频。没有 Lightning、Turbo、低步数 LoRA、量化或失败后自动降级。50 步是上游完整质量配方；无限加步数不保证画质继续提高。上游 Base 本身包含 CFG 蒸馏，这与另外安装 few-step / timestep 蒸馏加速权重是不同的事。
+
+## 官方 API 运行
+
+无需下载权重或等待 Slurm；只安装控制环境。API profile 默认选择各型号最高官方分辨率：H3 标准版 2K、MiniMax 直连 Max 768P、Seedance 2.0 4K、2.5 1080P。Max 的名字不意味着比标准版支持更高分辨率。所有型号均校验自己的分辨率、参考数量、时长、原生音频和输出格式，参数不合法直接报错。
+
+```bash
+bash scripts/install_control.sh
+./studio video-models
+./studio create api-film --video-model seedance-2.5
+./studio import api-film examples/video-api.json
+# 在启动 worker 的 shell 设置相应密钥：MINIMAX_API_KEY 或 ARK_API_KEY
+bash scripts/start.sh --only api review
+./studio produce api-film 01
+./studio queue api-film --episode 01
+./studio video-request VIDEO_TASK_ID
+./studio review-inputs VIDEO_TASK_ID approve
+# 待生成结束、听审音画后：
+./studio review VIDEO_TASK_ID approve
+./studio export api-film --episode 01
+```
+
+审核台可选择模型、官方分辨率、画幅、默认时长、容器、声音和 Max 扩写模式。API worker 使用独立网络队列，不占 GPU；持久化远端 ID，支持 `resume-api` 继续查询/下载，避免中断后重复付费。API 输出保留真实画布、音轨和 10bit/HEVC；现有本地项目和排队任务保持原配置。完整选项、素材上传位置、密钥、恢复及费用边界见 [docs/VIDEO_API.md](docs/VIDEO_API.md)。API 集成通过离线协议/媒体回归，不代表已完成真实付费调用。
 
 ## 已核查的上游边界
 

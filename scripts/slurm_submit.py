@@ -78,7 +78,8 @@ def main():
         import sys
         sys.path.insert(0,str(ROOT))
         from engine.core import config,ident
-        config(args.project);ident(args.episode)
+        cfg=config(args.project);ident(args.episode)
+        if cfg['models']['video'].get('provider')!='minimax-h3':raise ValueError('API projects use scripts/start.sh --only api review; do not allocate GPUs')
         command.extend([args.project,args.episode])
     plan = {'selection': choice, 'command': command,
             'note': 'Local H3 uses the entire allocation with tensor parallelism. No quality fallback; idle GPU counts do not guarantee a start time.'}

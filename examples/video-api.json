@@ -1,0 +1,15 @@
+[
+  {
+    "episode": "01",
+    "shot": "001",
+    "duration": 15,
+    "prompt": "日出时分，一只白鹭掠过雾气中的湖面，真实电影摄影，自然光线，水面倒影连续稳定。",
+    "motion_prompt": "白鹭从画面左侧缓慢飞向右侧，水面留下细小涟漪。",
+    "camera_prompt": "一个连续镜头，平稳横移跟拍，不切镜。",
+    "sound_intent": "清晨鸟鸣、轻风与水声，无背景音乐。",
+    "dialogue": "",
+    "reference_images": [],
+    "reference_videos": [],
+    "reference_audio": []
+  }
+]

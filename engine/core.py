@@ -184,7 +184,8 @@ def submit(pid,ep,sid,kind,overrides=None,retry_of=None):
     with db() as c:
         c.execute('BEGIN IMMEDIATE');shot=get_shot(c,pid,ep,sid);spec=json.loads(shot['spec'])
         if c.execute("SELECT 1 FROM tasks WHERE project=? AND episode=? AND shot=? AND kind=? AND status IN ('pending','running')",(pid,ep,sid,kind)).fetchone():raise ValueError('已有同类排队/执行任务')
-        params={**cfg['format'],**cfg['models'].get(kind,{}),**(overrides or {})}
+        model_defaults={} if retry_of and kind=='video' else cfg['models'].get(kind,{})
+        params={**cfg['format'],**model_defaults,**(overrides or {})}
         params['requested_overrides']=overrides or {}
         from engine.providers import resolve,default_provider
         params.setdefault('provider',default_provider(kind))
@@ -202,8 +203,8 @@ def submit(pid,ep,sid,kind,overrides=None,retry_of=None):
             if key=='negative_prompt':spec['effective_negative']='，'.join(x for x in [cfg['style'].get('negative',''),value] if x)
         if task_changes:params['task_overrides']=task_changes
         if kind=='video':
-            from engine.workflows import h3
-            if cfg.get('routing',{}).get('paid_api_enabled',False) is not False:raise ValueError('Local H3 requires paid_api_enabled: false')
+            from engine.workflows import video as h3
+            if params['provider'] in {'minimax-h3-api','seedance-api'} and not cfg.get('routing',{}).get('paid_api_enabled',False):raise ValueError('API tasks require an explicitly selected API project profile (studio video-model)')
             params['duration']=params.get('duration',spec['target_duration'])
             if params['duration']<spec['target_duration'] or params['duration']>cfg['budget']['max_shot_duration']:
                 raise ValueError('视频duration不得短于镜头目标或超出项目预算')
@@ -252,13 +253,13 @@ def retry_task(tid,overrides=None):
         params={k:v for k,v in old.items() if k not in excluded}
     else:params=dict(old.get('requested_overrides',{}))
     for key,value in old.get('task_overrides',{}).items():params[key]=value['after']
-    params['seed']=(int(old['spec']['seed'])+1)%(2**63)
+    if old.get('provider') not in {'minimax-h3-api','seedance-api'}:params['seed']=(int(old['spec']['seed'])+1)%(2**63)
     params.update(overrides or {})
     return submit(r['project'],r['episode'],r['shot'],r['kind'],params,retry_of=tid)
 
 
 def inputs_current(params,shot,pid):
-    from engine.workflows import h3
+    from engine.workflows import video as h3
     approval=params.get('input_review',{})
     spec=json.loads(shot['spec']) if isinstance(shot['spec'],str) else shot['spec']
     if params.get('source_spec_digest')!=h3.digest(spec):return False
@@ -269,7 +270,7 @@ def inputs_current(params,shot,pid):
 def review_inputs(tid,decision,reason=''):
     if decision not in {'approve','reject'}:raise ValueError('非法输入审核动作')
     if decision=='reject' and not reason.strip():raise ValueError('退回必须填写原因')
-    from engine.workflows import h3
+    from engine.workflows import video as h3
     with db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         row=conn.execute("SELECT * FROM tasks WHERE id=? AND kind='video' AND status='pending'",(tid,)).fetchone()
@@ -343,3 +344,22 @@ def bind_references(pid,ep,sid,refs,prompt=None,field='reference_images'):
         conn.execute('UPDATE shots SET spec=?,selected_video=NULL WHERE project=? AND episode=? AND id=?',(dumps(spec),pid,ep,sid))
         event(conn,pid,None,'references_bound',f'{ep}/{sid}: {field}: {dumps(refs)}')
     return {'shot':sid,field:refs,'original_preserved':True}
+
+
+def resume_api(tid):
+    """Resume polling/downloading the same paid task, retaining input approval."""
+    from engine.providers.cloud_video import API_PROVIDERS
+    with db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row=conn.execute("SELECT * FROM tasks WHERE id=? AND status='failed' AND kind='video'",(tid,)).fetchone()
+        if not row:raise ValueError('Only a failed API task can be resumed; running tasks already poll automatically')
+        p=json.loads(row['params'])
+        if p.get('provider') not in API_PROVIDERS:raise ValueError('This is not an API task')
+        state=project_dir(row['project'])/'production'/row['episode']/row['shot']/tid/'remote-task.json'
+        if not state.exists() or not json.loads(state.read_text()).get('request_id'):
+            raise ValueError('No saved remote task ID; check provider console before creating another paid request')
+        if not inputs_current(p,get_shot(conn,row['project'],row['episode'],row['shot']),row['project']):raise ValueError('Materials/script changed; remote output cannot be accepted against different inputs')
+        if conn.execute("SELECT 1 FROM tasks WHERE project=? AND episode=? AND shot=? AND kind='video' AND status IN ('pending','running')",(row['project'],row['episode'],row['shot'])).fetchone():raise ValueError('Another video candidate is pending/running')
+        conn.execute("UPDATE tasks SET status='pending',reason='',finished=NULL WHERE id=?",(tid,))
+        event(conn,row['project'],tid,'api_resumed','Continue saved remote task; no new paid generation')
+    return {'task':tid,'status':'pending','new_generation':False}

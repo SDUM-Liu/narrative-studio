@@ -3,8 +3,11 @@ from pathlib import Path
 from engine import core as c
 def main():
     p=argparse.ArgumentParser(description='叙映工坊生产CLI');sub=p.add_subparsers(dest='cmd',required=True)
-    sub.add_parser('init');sub.add_parser('doctor');sub.add_parser('status')
-    a=sub.add_parser('create');a.add_argument('project');a.add_argument('--name');a.add_argument('--template')
+    sub.add_parser('init');sub.add_parser('doctor');sub.add_parser('status');sub.add_parser('video-models')
+    a=sub.add_parser('video-model');a.add_argument('project');a.add_argument('profile');a.add_argument('--resolution');a.add_argument('--ratio');a.add_argument('--duration',type=int);a.add_argument('--output-format',choices=['mp4','mov']);a.add_argument('--audio',choices=['native','none']);a.add_argument('--prompt-expansion-mode',choices=['disabled','balanced','quality']);a.add_argument('--image-mode',choices=['reference','first_last']);a.add_argument('--watermark',action='store_true',default=None);a.add_argument('--return-last-frame',action='store_true',default=None)
+    a=sub.add_parser('resume-api');a.add_argument('task')
+    a=sub.add_parser('video-request');a.add_argument('task')
+    a=sub.add_parser('create');a.add_argument('project');a.add_argument('--name');a.add_argument('--template');a.add_argument('--video-model')
     a=sub.add_parser('migrate-h3');a.add_argument('project')
     a=sub.add_parser('inspect');a.add_argument('task')
     a=sub.add_parser('task');a.add_argument('task')
@@ -31,7 +34,28 @@ def main():
         elif a.cmd=='doctor':
             import subprocess
             return subprocess.call([sys.executable,str(c.ROOT/'scripts/doctor.py')])
-        elif a.cmd=='create':result=c.create_project(a.project,a.name,a.template)
+        elif a.cmd=='create':
+            if a.video_model:
+                from engine.video_models import PROFILES
+                if a.video_model not in PROFILES:raise ValueError('Unknown video profile')
+            result=c.create_project(a.project,a.name,a.template)
+            if a.video_model:
+                from engine.video_models import configure
+                configure(a.project,a.video_model);result=c.config(a.project)
+        elif a.cmd=='video-models':
+            from engine.video_models import catalog
+            result=catalog()
+        elif a.cmd=='video-model':
+            from engine.video_models import configure
+            options={k:getattr(a,k) for k in ['output_format','prompt_expansion_mode','watermark','return_last_frame','image_mode'] if getattr(a,k) is not None}
+            if a.audio is not None:options['generate_audio']=a.audio=='native'
+            result=configure(a.project,a.profile,a.resolution,a.ratio,a.duration,options)
+        elif a.cmd=='resume-api':result=c.resume_api(a.task)
+        elif a.cmd=='video-request':
+            with c.db() as conn:row=conn.execute("SELECT * FROM tasks WHERE id=? AND kind='video'",(a.task,)).fetchone()
+            if not row:raise ValueError('Video task not found')
+            from engine.providers.cloud_video import preview
+            result=preview(json.loads(row['params']),row['project'])
         elif a.cmd=='migrate-h3':result=c.migrate_h3(a.project)
         elif a.cmd=='task':
             with c.db() as conn:row=conn.execute('SELECT * FROM tasks WHERE id=?',(a.task,)).fetchone()

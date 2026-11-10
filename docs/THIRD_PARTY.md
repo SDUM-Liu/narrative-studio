@@ -5,6 +5,7 @@
 | 组件 | 来源与用途 | 许可 / 边界 |
 |---|---|---|
 | 主视频模型 | [MiniMax H3 官方权重](https://huggingface.co/MiniMaxAI/MiniMax-H3)、[官方代码说明](https://github.com/MiniMax-AI/MiniMax-H3) | MiniMax H3 Community License Agreement；不是 Apache/MIT，商用前阅读权重中的 LICENSE |
+| 官方视频 API | [MiniMax V2 OpenAPI](https://platform.minimax.io/docs/api-reference/video/generation/api/v2-video-generation.json)、[火山方舟](https://docs.volcengine.com/docs/ark/create-video-generation-task-api?lang=zh) | H3 标准版 / Max、Seedance 2.0 / 2.5；遵守服务商条款、账号模型准入与计费规则。API 不是开放权重许可 |
 | 本地 H3 推理 | [SGLang H3 原生实现](https://docs.sglang.io/cookbook/diffusion/MiniMax/MiniMax-H3)、[SGLang](https://github.com/sgl-project/sglang) | Apache-2.0；源码提交固定于 configs/sglang-commit.txt；生成全程本地 |
 | 可选参考资产 | [Qwen-Image 打包](https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI)、[Qwen-Image-Edit](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI) | 按上游 Qwen/打包仓库许可；下载原生 BF16，无加速 LoRA |
 | 可选资产运行环境 | [ComfyUI](https://github.com/Comfy-Org/ComfyUI) | GPL-3.0；固定 configs/comfy-commit.txt，仅 image / edit 注册 |
@@ -13,7 +14,7 @@
 | 视频处理 | PyAV、imageio-ffmpeg、FFmpeg | 遵守各自许可证及 FFmpeg 实际构建许可（含 x264 的构建通常涉及 GPL） |
 | 字体 | Noto Sans CJK SC | SIL OFL 1.1，见 shared-assets/fonts/LICENSE |
 
-完整线上 H3 包含托管 Context-IR、Base 与 H3-Regenerate-2K；后两者中的 2K 模块以及 Context-IR 不属于完整开放的本地系统。本项目仅使用开放 Base 与本地结构化提示组织；不运行收费 API、不需要密钥，不宣称线上线下质量等同。官方亦提供 ComfyUI 模板，但本项目的视频主流程使用 SGLang 的本地 Python 调用而非 Comfy 图。
+完整线上 H3 包含托管 Context-IR、Base 与 H3-Regenerate-2K；后两者中的 2K 模块以及 Context-IR 不属于完整开放的本地系统。本地模式使用开放 Base 与本地结构化提示组织，不需要云端密钥；显式 API 模式调用官方生成接口，不宣称线上线下质量等同。新增 API 适配器不附带托管服务的模型权重或许可授权。官方亦提供 ComfyUI 模板，但本项目的视频主流程使用 SGLang 的本地 Python 调用而非 Comfy 图。
 
 原始 H3 checkpoint 的 CFG 蒸馏属于官方 Base 架构。本项目没有引入另外的 Turbo / timestep 蒸馏 LoRA、量化 checkpoint、稀疏近似注意力或跳步缓存。
 
